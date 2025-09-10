@@ -9,7 +9,7 @@ const config = {
 const app = express();
 
 // LINEのWebhookイベントを受け取るためのミドルウェア
-app.use(middleware(config));
+//app.use(middleware(config));
 
 // JSONボディをパースするミドルウェア（これが必要！）
 app.use(express.json());
@@ -38,7 +38,7 @@ app.get("/", (req, res) => {
 });
 
 // Webhookエンドポイント
-app.post('/webhook', (req, res) => {
+app.post('/webhook', middleware(config), (req, res) => {
   if (!req.headers['x-line-signature']) {
     console.warn("Unauthorized access to /webhook");
     return res.status(403).send("Forbidden");
