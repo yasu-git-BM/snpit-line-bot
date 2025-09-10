@@ -39,6 +39,11 @@ app.get("/", (req, res) => {
 
 // Webhookエンドポイント
 app.post('/webhook', (req, res) => {
+  if (!req.headers['x-line-signature']) {
+    console.warn("Unauthorized access to /webhook");
+    return res.status(403).send("Forbidden");
+  }
+
   Promise
     .all(req.body.events.map(handleEvent))
     .then(result => res.json(result))
