@@ -8,6 +8,9 @@ const config = {
 
 const app = express();
 
+// JSONボディをパースするミドルウェア（これが必要！）
+app.use(express.json());
+
 // LINEのWebhookイベントを受け取るためのミドルウェア
 app.use(middleware(config));
 
