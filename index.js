@@ -8,11 +8,13 @@ const config = {
 
 const app = express();
 
+// LINEのWebhookイベントを受け取るためのミドルウェア
+app.use(middleware(config));
+
 // JSONボディをパースするミドルウェア（これが必要！）
 app.use(express.json());
 
-// LINEのWebhookイベントを受け取るためのミドルウェア
-app.use(middleware(config));
+const client = new Client(config); // ← 先に初期化！
 
 // イベント処理関数
 function handleEvent(event) {
@@ -46,8 +48,6 @@ app.post('/webhook', (req, res) => {
     });
 });
 
-// LINE Botクライアントの初期化
-const client = new Client(config);
 
 // Render用のポート設定
 const port = process.env.PORT || 3000;
