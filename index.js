@@ -28,6 +28,10 @@ function handleEvent(event) {
   return client.replyMessage(event.replyToken, [reply]);
 }
 
+app.get("/", (req, res) => {
+  res.send("Bot is alive!");
+});
+
 // Webhookエンドポイント
 app.post('/webhook', (req, res) => {
   Promise
