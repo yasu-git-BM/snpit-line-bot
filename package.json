@@ -1,10 +1,10 @@
 {
   "name": "snpit-line-bot",
   "version": "1.0.0",
-  "main": "line_bot/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node line_bot/index.js",
-    "poll":  "node line_bot/polling/scheduler.js"
+    "start": "node index.js",
+    "poll":  "node polling/scheduler.js"
   },
   "dependencies": {
     "@line/bot-sdk": "^7.4.0",
