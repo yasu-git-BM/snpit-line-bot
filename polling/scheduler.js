@@ -1,4 +1,5 @@
 // line_bot/polling/scheduler.js
+
 const fs   = require('fs');
 const path = require('path');
 const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
@@ -6,19 +7,10 @@ const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
 const cfgPath    = path.join(__dirname, '../data/bot-config.json');
 const statusPath = path.join(__dirname, '../data/camera-status.json');
 
-/**
- * 設定ファイルから pollingIntervalMs, tokenIds を読み込む
- */
 function loadConfig() {
-  const { pollingIntervalMs, tokenIds } = JSON.parse(
-    fs.readFileSync(cfgPath, 'utf8')
-  );
-  return { pollingIntervalMs, tokenIds };
+  return JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
 }
 
-/**
- * NFTごとに最新データを取得し JSON ファイルに書き出す
- */
 async function updateStatus() {
   const { pollingIntervalMs, tokenIds } = loadConfig();
   const out = {};
@@ -43,7 +35,15 @@ async function updateStatus() {
 
   fs.writeFileSync(statusPath, JSON.stringify(out, null, 2), 'utf8');
   console.log('📄 camera-status.json updated');
-  return { pollingIntervalMs };
+  return loadConfig().pollingIntervalMs;
+}
+
+// CLI で `node polling/scheduler.js` したときだけ自動実行する
+if (require.main === module) {
+  (async () => {
+    const interval = await updateStatus();
+    setInterval(updateStatus, interval);
+  })();
 }
 
 module.exports = { updateStatus };
