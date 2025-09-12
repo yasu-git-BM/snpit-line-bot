@@ -1,61 +1,68 @@
+// index.js
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
+
+const { buildFlexMessage } = require('./utils/flexBuilder');
+const statusRouter = require('./api/status');
 
 const config = {
-  channelAccessToken: 'djlrK2feA+MepTYdJQdpcc/nRDsjewPulSoSHVoUij7bUQhZH+h+empThY5z5SMe1j1fM6HAbSSBe1D9/pZnh03cV98SecQq/ZsKqgzQR7kA2nyvznSZQabyDesh2j9F15tLNsseRdIOOHvjheFdAAdB04t89/1O/w1cDnyilFU=',
-  channelSecret: 'f35e89f12f64ec77d854c0428ff87a6e'
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
+  channelSecret: process.env.CHANNEL_SECRET,
 };
 
+const client = new Client(config);
 const app = express();
 
-// LINEのWebhookイベントを受け取るためのミドルウェア
-//app.use(middleware(config));
-
-// JSONボディをパースするミドルウェア（これが必要！）
+// JSONボディをパース（GUI向けAPIで必要）
 app.use(express.json());
 
-const client = new Client(config); // ← 先に初期化！
+// GUI向けAPIエンドポイントをマウント
+app.use('/api', statusRouter);
 
-// イベント処理関数
-function handleEvent(event) {
-  if (event.type !== 'message' || event.message.type !== 'text') {
-    // テキストメッセージ以外は無視
-    return Promise.resolve(null);
+// LINE Webhookエンドポイント
+app.post('/webhook', middleware(config), async (req, res) => {
+  const events = req.body.events || [];
+
+  for (const event of events) {
+    if (event.type === 'message' && event.message.type === 'text') {
+      const msg = event.message.text.trim().toLowerCase();
+
+      if (msg === 'status') {
+        try {
+          // 状態ファイルの読み込み
+          const statusPath = path.join(__dirname, 'data/camera-status.json');
+          const orderPath = path.join(__dirname, 'data/wallet-order.json');
+          const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+          const walletOrder = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
+
+          // Flex Message生成＆返信
+          const flexMessage = buildFlexMessage(statusData, walletOrder);
+          await client.replyMessage(event.replyToken, flexMessage);
+        } catch (err) {
+          console.error('ステータス取得エラー:', err);
+          await client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: 'ステータス取得に失敗しました。',
+          });
+        }
+      } else {
+        // それ以外のテキストはエコー返信
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `受信: ${msg}`,
+        });
+      }
+    }
   }
 
-  // 返信メッセージを作成
-  const reply = {
-    type: 'text',
-    text: `📩 メッセージ「${event.message.text}」を受け取りました！`
-  };
-
-  // LINEに返信
-  return client.replyMessage(event.replyToken, [reply]);
-}
-
-app.get("/", (req, res) => {
-  res.send("Bot is alive!");
+  res.sendStatus(200);
 });
 
-// Webhookエンドポイント
-app.post('/webhook', middleware(config), (req, res) => {
-  if (!req.headers['x-line-signature']) {
-    console.warn("Unauthorized access to /webhook");
-    return res.status(403).send("Forbidden");
-  }
-
-  Promise
-    .all(req.body.events.map(handleEvent))
-    .then(result => res.json(result))
-    .catch(err => {
-      console.error(err);
-      res.status(500).end();
-    });
-});
-
-
-// Render用のポート設定
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`LINE Bot is running on port ${port}`);
+// サーバ起動
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`LINE Bot running on port ${PORT}`);
 });
