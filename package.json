@@ -1,20 +1,12 @@
-// package.json（プロジェクトルートで上書きせず、内容をマージするイメージ）
 {
   "name": "snpit-line-bot",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    // ← 既存の poll はそのまま
     "poll": "node polling/scheduler.js",
-
-    // フロント用の新スクリプト
     "client:install": "cd mon_register && npm install",
-    "client:build":   "cd mon_register && npm run build",
-
-    // サーバー本番起動
-    "server:start":   "node line_bot/index.js",
-
-    // “npm start” で一気にインストール→ビルド→サーバー起動
+    "client:build": "cd mon_register && npm run build",
+    "server:start": "node line_bot/index.js",
     "start": "npm run client:install && npm run client:build && npm run server:start"
   },
   "dependencies": {
@@ -22,5 +14,8 @@
     "dotenv": "^16.0.0",
     "ethers": "^5.7.2",
     "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }
