@@ -1,5 +1,3 @@
-// line_bot/polling/scheduler.js
-
 const fs   = require('fs');
 const path = require('path');
 const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
@@ -24,8 +22,7 @@ async function updateStatus() {
           name: md.name || `Camera #${id}`,
           image: md.image || '',
           remainingShots:
-            md.attributes?.find(a => a.trait_type === 'Remaining Shots')
-              ?.value || 0
+            md.attributes?.find(a => a.trait_type === 'Remaining Shots')?.value || 0
         };
       }
     } catch (err) {
@@ -38,7 +35,6 @@ async function updateStatus() {
   return loadConfig().pollingIntervalMs;
 }
 
-// CLI で `node polling/scheduler.js` したときだけ自動実行する
 if (require.main === module) {
   (async () => {
     const interval = await updateStatus();
