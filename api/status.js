@@ -1,22 +1,18 @@
+// line_bot/api/status.js
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const router = express.Router();
-const { buildFlexMessage } = require('../utils/flexBuilder');
+const fs      = require('fs');
+const path    = require('path');
 
-router.get('/snpit-status', (req, res) => {
+const router     = express.Router();
+const statusPath = path.join(__dirname, '../data/camera-status.json');
+
+router.get('/', (_req, res) => {
   try {
-    const statusPath = path.join(__dirname, '../data/camera-status.json');
-    const orderPath = path.join(__dirname, '../data/wallet-order.json');
-
-    const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
-    const walletOrder = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
-
-    const flexMessage = buildFlexMessage(statusData, walletOrder);
-    res.json(flexMessage);
+    const data = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+    res.json(data);
   } catch (err) {
-    console.error('APIステータス取得エラー:', err);
-    res.status(500).json({ error: 'ステータス取得に失敗しました' });
+    console.error('Cannot read status:', err.message);
+    res.status(500).json({ error: 'Cannot read camera status' });
   }
 });
 

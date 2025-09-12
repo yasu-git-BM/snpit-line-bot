@@ -1,33 +1,49 @@
-const fs = require('fs');
+// line_bot/polling/scheduler.js
+const fs   = require('fs');
 const path = require('path');
 const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
 
-const botConfigPath = path.join(__dirname, '../data/bot-config.json');
+const cfgPath    = path.join(__dirname, '../data/bot-config.json');
 const statusPath = path.join(__dirname, '../data/camera-status.json');
 
-const botConfig = JSON.parse(fs.readFileSync(botConfigPath, 'utf8'));
-const { pollingIntervalMs, tokenIds } = botConfig;
+/**
+ * 設定ファイルから pollingIntervalMs, tokenIds を読み込む
+ */
+function loadConfig() {
+  const { pollingIntervalMs, tokenIds } = JSON.parse(
+    fs.readFileSync(cfgPath, 'utf8')
+  );
+  return { pollingIntervalMs, tokenIds };
+}
 
-const updateStatus = async () => {
-  const statusData = {};
+/**
+ * NFTごとに最新データを取得し JSON ファイルに書き出す
+ */
+async function updateStatus() {
+  const { pollingIntervalMs, tokenIds } = loadConfig();
+  const out = {};
 
-  for (const tokenId of tokenIds) {
-    const owner = await fetchOwner(tokenId);
-    const metadata = await fetchMetadata(tokenId);
-
-    if (owner && metadata) {
-      statusData[owner] = {
-        name: metadata.name || `Camera #${tokenId}`,
-        image: metadata.image || '',
-        remainingShots:
-          metadata.attributes?.find(attr => attr.trait_type === 'Remaining Shots')?.value || 0
-      };
+  for (const id of tokenIds) {
+    try {
+      const owner = await fetchOwner(id);
+      const md    = await fetchMetadata(id);
+      if (owner && md) {
+        out[owner] = {
+          name: md.name || `Camera #${id}`,
+          image: md.image || '',
+          remainingShots:
+            md.attributes?.find(a => a.trait_type === 'Remaining Shots')
+              ?.value || 0
+        };
+      }
+    } catch (err) {
+      console.error(`Error fetching token ${id}:`, err.message);
     }
   }
 
-  fs.writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
-  console.log('camera-status.json �X�V����');
-};
+  fs.writeFileSync(statusPath, JSON.stringify(out, null, 2), 'utf8');
+  console.log('📄 camera-status.json updated');
+  return { pollingIntervalMs };
+}
 
-setInterval(updateStatus, pollingIntervalMs);
-updateStatus();
+module.exports = { updateStatus };

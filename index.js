@@ -1,68 +1,37 @@
-// index.js
-const express = require('express');
-const { Client, middleware } = require('@line/bot-sdk');
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
+// line_bot/index.js
+const express    = require('express');
+const path       = require('path');
+const bodyParser = require('body-parser');
 
-const { buildFlexMessage } = require('./utils/flexBuilder');
 const statusRouter = require('./api/status');
+const updateRouter = require('./api/update');
+const { updateStatus } = require('./polling/scheduler');
 
-const config = {
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
-};
-
-const client = new Client(config);
 const app = express();
+app.use(bodyParser.json());
 
-// JSONボディをパース（GUI向けAPIで必要）
-app.use(express.json());
+// API ルート
+app.use('/api/status', statusRouter);
+app.use('/api/update', updateRouter);
 
-// GUI向けAPIエンドポイントをマウント
-app.use('/api', statusRouter);
-
-// LINE Webhookエンドポイント
-app.post('/webhook', middleware(config), async (req, res) => {
-  const events = req.body.events || [];
-
-  for (const event of events) {
-    if (event.type === 'message' && event.message.type === 'text') {
-      const msg = event.message.text.trim().toLowerCase();
-
-      if (msg === 'status') {
-        try {
-          // 状態ファイルの読み込み
-          const statusPath = path.join(__dirname, 'data/camera-status.json');
-          const orderPath = path.join(__dirname, 'data/wallet-order.json');
-          const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
-          const walletOrder = JSON.parse(fs.readFileSync(orderPath, 'utf8'));
-
-          // Flex Message生成＆返信
-          const flexMessage = buildFlexMessage(statusData, walletOrder);
-          await client.replyMessage(event.replyToken, flexMessage);
-        } catch (err) {
-          console.error('ステータス取得エラー:', err);
-          await client.replyMessage(event.replyToken, {
-            type: 'text',
-            text: 'ステータス取得に失敗しました。',
-          });
-        }
-      } else {
-        // それ以外のテキストはエコー返信
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: `受信: ${msg}`,
-        });
-      }
-    }
-  }
-
-  res.sendStatus(200);
+// フロントエンドのビルド成果物を静的配信
+app.use(express.static(path.join(__dirname, '../mon_register/dist')));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../mon_register/dist/index.html'));
 });
 
-// サーバ起動
+// サーバー起動と初回＋定期更新スケジュール
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`LINE Bot running on port ${PORT}`);
+  console.log(`Listening on port ${PORT}`);
+
+  // 起動直後の1回目実行
+  updateStatus().catch(err => console.error('Initial update failed:', err));
+
+  // 以降は config に従って定期実行
+  const { pollingIntervalMs } = require('./polling/scheduler').updateStatus();
+  setInterval(
+    () => updateStatus().catch(err => console.error('Scheduled update failed:', err)),
+    pollingIntervalMs
+  );
 });

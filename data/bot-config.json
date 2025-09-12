@@ -1,5 +1,4 @@
 {
   "pollingIntervalMs": 600000,
-  "tokenIds": [],
-  "maxShotsPerCamera": 20
+  "tokenIds": []
 }
