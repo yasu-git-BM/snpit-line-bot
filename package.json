@@ -1,19 +1,16 @@
 {
   "name": "snpit-line-bot",
   "version": "1.0.0",
-  "main": "line_bot/index.js",
+  "main": "index.js",
   "scripts": {
-    "poll": "node line_bot/polling/scheduler.js",
-    "client:install": "cd mon_register && npm install",
-    "client:build": "cd mon_register && npm run build",
-    "build": "npm run client:install && npm run client:build",
-    "start": "npm run build && node line_bot/index.js"
+    "start": "node index.js",
+    "poll":  "node polling/scheduler.js"
   },
   "dependencies": {
     "@line/bot-sdk": "^7.4.0",
-    "dotenv": "^16.0.0",
-    "ethers": "^5.7.2",
-    "express": "^4.18.2"
+    "dotenv":        "^16.0.0",
+    "ethers":        "^5.7.2",
+    "express":       "^4.18.2"
   },
   "engines": {
     "node": ">=16"
