@@ -3,12 +3,11 @@ require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
-const fs      = require('fs');
+const fetch   = require('node-fetch');
 
 const app = express();
 
 // ===== CORS設定 =====
-// 環境変数 FRONTEND_URL に mon_register の本番URL（末尾スラなし）を設定
 const FRONTEND_URL = process.env.FRONTEND_URL;
 if (!FRONTEND_URL) {
   console.error('❗ FRONTEND_URL が未設定です');
@@ -25,42 +24,60 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ===== GET /config.json =====
-app.get('/config.json', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'config.json'));
+// ===== JSONBin設定 =====
+const BIN_ID  = process.env.JSON_BIN_ID;
+const API_KEY = process.env.JSON_BIN_KEY;
+if (!BIN_ID || !API_KEY) {
+  console.error('❗ JSON_BIN_ID または JSON_BIN_KEY が未設定です');
+  process.exit(1);
+}
+const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+// ===== ポーリング間隔設定（環境変数から取得） =====
+const POLLING_INTERVAL_MS = parseInt(process.env.POLLING_INTERVAL_MS, 10) || 60000;
+console.log(`⏱ ポーリング間隔: ${POLLING_INTERVAL_MS} ms`);
+
+// ===== GET /api/config =====
+// 旧 /config.json を廃止し、環境変数から動的に返す
+app.get('/api/config', (req, res) => {
+  res.json({
+    pollingIntervalMs: POLLING_INTERVAL_MS
+  });
 });
 
 // ===== POST /api/status =====
-app.post('/api/status', (req, res) => {
-  const filePath = path.join(__dirname, 'data', 'camera-status.json');
-  console.log('🧐 POST /api/status →', filePath);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(500).json({ error: 'Status file missing' });
-  }
+app.post('/api/status', async (req, res) => {
   try {
-    const raw  = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(raw);
-    return res.json(data);
+    const r = await fetch(`${BIN_URL}/latest`, {
+      method: 'GET',
+      headers: { 'X-Master-Key': API_KEY }
+    });
+    if (!r.ok) throw new Error(`JSONBin GET failed: ${r.status}`);
+    const json = await r.json();
+    return res.json(json.record || {});
   } catch (err) {
-    console.error('🔥 Error reading status file:', err);
-    return res.status(500).json({ error: 'Failed to read status' });
+    console.error('🔥 Error fetching status from JSONBin:', err);
+    return res.status(500).json({ error: 'Failed to fetch status' });
   }
 });
 
 // ===== POST /api/update/status =====
-// 更新後の最新データを返す
-app.post('/api/update/status', (req, res) => {
-  const filePath = path.join(__dirname, 'data', 'camera-status.json');
-  console.log('🧐 POST /api/update/status →', filePath);
-
+app.post('/api/update/status', async (req, res) => {
   try {
     const newData = req.body;
-    fs.writeFileSync(filePath, JSON.stringify(newData, null, 2), 'utf-8');
-    console.log('✅ camera-status.json updated');
-    return res.json(newData);
+    const r = await fetch(BIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': API_KEY
+      },
+      body: JSON.stringify(newData)
+    });
+    if (!r.ok) throw new Error(`JSONBin PUT failed: ${r.status}`);
+    const json = await r.json();
+    return res.json(json.record || {});
   } catch (err) {
-    console.error('🔥 Error updating status file:', err);
+    console.error('🔥 Error updating status to JSONBin:', err);
     return res.status(500).json({ error: 'Failed to update status' });
   }
 });
