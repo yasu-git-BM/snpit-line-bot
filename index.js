@@ -1,4 +1,3 @@
-// line_bot/index.js
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
@@ -33,12 +32,11 @@ if (!BIN_ID || !API_KEY) {
 }
 const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-// ===== ポーリング間隔設定（環境変数から取得） =====
+// ===== ポーリング間隔設定 =====
 const POLLING_INTERVAL_MS = parseInt(process.env.POLLING_INTERVAL_MS, 10) || 60000;
 console.log(`⏱ ポーリング間隔: ${POLLING_INTERVAL_MS} ms`);
 
 // ===== GET /api/config =====
-// 旧 /config.json を廃止し、環境変数から動的に返す
 app.get('/api/config', (req, res) => {
   res.json({
     pollingIntervalMs: POLLING_INTERVAL_MS
@@ -65,6 +63,28 @@ app.post('/api/status', async (req, res) => {
 app.post('/api/update/status', async (req, res) => {
   try {
     const newData = req.body;
+
+    // --- NFTキー名統一処理 ---
+    if (Array.isArray(newData.wallets)) {
+      newData.wallets.forEach(wallet => {
+        if (Array.isArray(wallet.nfts)) {
+          wallet.nfts = wallet.nfts.map(nft => {
+            // tokenid → tokenId
+            if (nft.tokenid && !nft.tokenId) {
+              nft.tokenId = nft.tokenid;
+            }
+            // contract → tokenId
+            if (nft.contract && !nft.tokenId) {
+              nft.tokenId = nft.contract;
+            }
+            delete nft.tokenid;
+            delete nft.contract;
+            return nft;
+          });
+        }
+      });
+    }
+
     const r = await fetch(BIN_URL, {
       method: 'PUT',
       headers: {
