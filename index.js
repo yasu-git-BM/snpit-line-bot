@@ -20,7 +20,6 @@ function getStatusFilePath() {
   // process.cwd() => /opt/render/project/src など、プロジェクトのルート相当になる
   return path.resolve(
     process.cwd(),
-    'line_bot',
     'data',
     'camera-status.json'
   );
