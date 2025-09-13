@@ -7,79 +7,94 @@ const fs      = require('fs');
 
 const app = express();
 
-// === 設定: 環境変数 FRONTEND_URL の値を確認 ===
-// Render/Vercel の Env Vars に
-//   FRONTEND_URL=https://spoilt-mini-misstate.vercel.app
-// を登録し、末尾スラッシュ「/」がついていないことを必ず確認してください。
+// ----------------------------------------------------------------------------
+// 1. CORS 設定（単一オリジン許可）
+// ----------------------------------------------------------------------------
+// 環境変数 FRONTEND_URL を必ずセットしてください。
+// 例: https://snpit-mon-register.vercel.app
 const FRONTEND_URL = process.env.FRONTEND_URL;
-console.log('🔧 FRONTEND_URL =', FRONTEND_URL);
-
 if (!FRONTEND_URL) {
   console.error('❗️ 環境変数 FRONTEND_URL が設定されていません');
   process.exit(1);
 }
+console.log('🔧 FRONTEND_URL =', FRONTEND_URL);
 
-// === CORS ミドルウェア (単一オリジン許可) ===
 app.use(cors({
   origin: FRONTEND_URL,
   methods: ['GET', 'POST'],
   optionsSuccessStatus: 200
 }));
 
+// ----------------------------------------------------------------------------
+// 2. Body パーサー & 静的ファイル配信
+// ----------------------------------------------------------------------------
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// === GET /config.json ===
+// ----------------------------------------------------------------------------
+// 3. ルート定義
+// ----------------------------------------------------------------------------
+
+// 3.1 GET /config.json
+//   public/config.json を返却
 app.get('/config.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'config.json'));
 });
 
-// データファイルへのパスをプロジェクトルート基準で解決
-function dataFile(name) {
-  // プロジェクトルート直下に data フォルダを置いている想定
-  return path.resolve(process.cwd(), 'data', name);
-}
-
-// === GET /all-states ===
-// ブラウザのアドレスバーから叩く (GET) 用に追加
-app.get('/all-states', (req, res) => {
-  const filePath = dataFile('camera-status.json');
-  console.log('🧐 GET all-states – loading', filePath);
+// 3.2 POST /api/status
+//   data/camera-status.json を読み込んで返却
+app.post('/api/status', (req, res) => {
+  const filePath = path.join(__dirname, 'data', 'camera-status.json');
+  console.log('🧐 POST /api/status → loading', filePath);
 
   if (!fs.existsSync(filePath)) {
-    console.error('❌ File not found:', filePath);
-    return res.status(500).json({ error: 'State file missing' });
+    console.error('❌ Status file not found:', filePath);
+    return res
+      .status(500)
+      .json({ error: 'Status file missing on server' });
   }
 
   try {
     const raw  = fs.readFileSync(filePath, 'utf-8');
     const data = JSON.parse(raw);
     return res.json(data);
+
   } catch (err) {
-    console.error('🔥 Error parsing state file:', err);
-    return res.status(500).json({ error: 'Failed to read state' });
+    console.error('🔥 Error reading status file:', err);
+    return res
+      .status(500)
+      .json({ error: 'Failed to read status' });
   }
 });
 
-// === POST /all-states ===
-// フロントエンドの fetch から叩く (POST) 用
-app.post('/all-states', (req, res) => {
-  const filePath = dataFile('camera-status.json');
-  console.log('🧐 POST all-states – updating', filePath);
+// 3.3 POST /api/update/status
+//   data/camera-status.json を書き換え
+app.post('/api/update/status', (req, res) => {
+  const filePath = path.join(__dirname, 'data', 'camera-status.json');
+  console.log('🧐 POST /api/update/status → updating', filePath);
 
   try {
     const newData = req.body;
-    fs.writeFileSync(filePath, JSON.stringify(newData, null, 2), 'utf-8');
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(newData, null, 2),
+      'utf-8'
+    );
     console.log('✅ camera-status.json updated');
     return res.json({ ok: true });
+
   } catch (err) {
-    console.error('🔥 Error writing state file:', err);
-    return res.status(500).json({ error: 'Failed to update state' });
+    console.error('🔥 Error updating status file:', err);
+    return res
+      .status(500)
+      .json({ error: 'Failed to update status' });
   }
 });
 
-// === サーバ起動 ===
+// ----------------------------------------------------------------------------
+// 4. サーバ起動
+// ----------------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server listening on port ${PORT}`);
+  console.log(`🚀 Backend running on port ${PORT}`);
 });
