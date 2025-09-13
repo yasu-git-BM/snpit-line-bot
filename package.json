@@ -4,14 +4,15 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "poll":  "node polling/scheduler.js"
+    "poll": "node polling/scheduler.js"
   },
   "dependencies": {
     "@line/bot-sdk": "^7.4.0",
-    "dotenv":        "^16.0.0",
-    "ethers":        "^5.7.2",
-    "express":       "^4.18.2",
-    "body-parser":   "^1.20.0"
+    "body-parser": "^1.20.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "ethers": "^5.7.2",
+    "express": "^4.18.2"
   },
   "engines": {
     "node": ">=16"
