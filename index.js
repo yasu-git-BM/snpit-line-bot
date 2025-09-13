@@ -1,5 +1,6 @@
-// src/index.js
+// index.js
 require('dotenv').config();
+
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
@@ -7,33 +8,30 @@ const fs      = require('fs');
 
 const app = express();
 
-// フロント用のオリジナルURL（環境変数 or デフォルト）
-const FRONTEND_URL = process.env.FRONTEND_URL
-  || 'https://<あなたの-frontend-domain>.vercel.app';
+// 本番フロントエンドの URL を環境変数から取得
+// 環境変数 FRONTEND_URL を必ず設定してください
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ||
+  'https://snpit-mon-register.vercel.app';
 
-app.use(cors({ origin: FRONTEND_URL }));
+// CORS ミドルウェア（単一オリジン）
+app.use(cors({
+  origin: FRONTEND_URL,
+  methods: ['GET', 'POST']
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// util: JSONファイルの絶対パスを返す
-function getStatusFilePath() {
-  // process.cwd() => /opt/render/project/src など、プロジェクトのルート相当になる
-  return path.resolve(
-    process.cwd(),
-    'data',
-    'camera-status.json'
-  );
-}
-
-// GET /config.json
+// GET /config.json → public/config.json を返却
 app.get('/config.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'config.json'));
 });
 
-// POST /api/status
+// POST /api/status → data/camera-status.json を返却
 app.post('/api/status', (req, res) => {
-  const filePath = getStatusFilePath();
-  console.log('🧐 Trying to load status file at:', filePath);
+  const filePath = path.join(__dirname, 'data', 'camera-status.json');
+  console.log('🧐 Load status file at:', filePath);
 
   try {
     if (!fs.existsSync(filePath)) {
@@ -51,15 +49,19 @@ app.post('/api/status', (req, res) => {
   }
 });
 
-// POST /api/update/status
+// POST /api/update/status → data/camera-status.json を上書き
 app.post('/api/update/status', (req, res) => {
-  const filePath = getStatusFilePath();
-  console.log('🧐 Trying to update status file at:', filePath);
+  const filePath = path.join(__dirname, 'data', 'camera-status.json');
+  console.log('🧐 Update status file at:', filePath);
 
   try {
     const newData = req.body;
-    fs.writeFileSync(filePath, JSON.stringify(newData, null, 2), 'utf-8');
-    console.log('✅ camera-status.json updated:', filePath);
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(newData, null, 2),
+      'utf-8'
+    );
+    console.log('✅ camera-status.json updated');
     return res.json({ ok: true });
 
   } catch (err) {
@@ -68,6 +70,7 @@ app.post('/api/update/status', (req, res) => {
   }
 });
 
+// サーバ起動
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on port ${PORT}`);
