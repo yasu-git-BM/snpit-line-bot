@@ -7,28 +7,38 @@ const fs      = require('fs');
 
 const app = express();
 
-// 本番フロントエンドの URL を環境変数から取得
+// フロント用のオリジナルURL（環境変数 or デフォルト）
 const FRONTEND_URL = process.env.FRONTEND_URL
   || 'https://<あなたの-frontend-domain>.vercel.app';
 
-// ミドルウェア設定
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// GET /config.json → public/config.json を返却
+// util: JSONファイルの絶対パスを返す
+function getStatusFilePath() {
+  // process.cwd() => /opt/render/project/src など、プロジェクトのルート相当になる
+  return path.resolve(
+    process.cwd(),
+    'line_bot',
+    'data',
+    'camera-status.json'
+  );
+}
+
+// GET /config.json
 app.get('/config.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'config.json'));
 });
 
-// POST /api/status → camera-status.json を返却
+// POST /api/status
 app.post('/api/status', (req, res) => {
-  // index.js は `src/` 内、JSON はプロジェクト直下の line_bot/data にあるので
-  const filePath = path.join(__dirname, '..', 'line_bot', 'data', 'camera-status.json');
+  const filePath = getStatusFilePath();
+  console.log('🧐 Trying to load status file at:', filePath);
 
   try {
     if (!fs.existsSync(filePath)) {
-      console.error('🔍 Status file not found:', filePath);
+      console.error('❌ Status file not found:', filePath);
       return res.status(500).json({ error: 'Status file missing on server' });
     }
 
@@ -42,14 +52,15 @@ app.post('/api/status', (req, res) => {
   }
 });
 
-// POST /api/update/status → camera-status.json を書き換え
+// POST /api/update/status
 app.post('/api/update/status', (req, res) => {
-  const filePath = path.join(__dirname, '..', 'line_bot', 'data', 'camera-status.json');
+  const filePath = getStatusFilePath();
+  console.log('🧐 Trying to update status file at:', filePath);
 
   try {
     const newData = req.body;
     fs.writeFileSync(filePath, JSON.stringify(newData, null, 2), 'utf-8');
-    console.log('📄 camera-status.json updated');
+    console.log('✅ camera-status.json updated:', filePath);
     return res.json({ ok: true });
 
   } catch (err) {
@@ -58,7 +69,6 @@ app.post('/api/update/status', (req, res) => {
   }
 });
 
-// サーバ起動
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on port ${PORT}`);
