@@ -1,8 +1,9 @@
+// line_bot/index.js
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
-const fetch   = require('node-fetch');
+const fetch   = require('node-fetch'); // ①あなたの環境は node-fetch@2 を追加済み
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.get('/api/config', (req, res) => {
 });
 
 // ===== POST /api/status =====
+// JSONBin 上の最新レコードを返却。レコードをそのまま返す（record 部分）。
 app.post('/api/status', async (req, res) => {
   try {
     const r = await fetch(`${BIN_URL}/latest`, {
@@ -52,6 +54,10 @@ app.post('/api/status', async (req, res) => {
     });
     if (!r.ok) throw new Error(`JSONBin GET failed: ${r.status}`);
     const json = await r.json();
+
+    console.log('📥 /api/status JSONBin record:', JSON.stringify(json.record, null, 2));
+
+    // 返却は record をそのまま（{ wallets: [...] } を想定）
     return res.json(json.record || {});
   } catch (err) {
     console.error('🔥 Error fetching status from JSONBin:', err);
@@ -60,29 +66,38 @@ app.post('/api/status', async (req, res) => {
 });
 
 // ===== POST /api/update/status =====
+// 受け取ったJSONを保存前にキー名を正規化（tokenid/contract → tokenId）して PUT 上書き。
 app.post('/api/update/status', async (req, res) => {
   try {
-    const newData = req.body;
+    console.log('📤 /api/update/status received body:', JSON.stringify(req.body, null, 2));
 
-    // --- NFTキー名統一処理 ---
+    const newData = req.body || {};
+
+    // --- NFTキー名統一処理（tokenid, contract → tokenId に統一） ---
     if (Array.isArray(newData.wallets)) {
       newData.wallets.forEach(wallet => {
         if (Array.isArray(wallet.nfts)) {
           wallet.nfts = wallet.nfts.map(nft => {
-            // tokenid → tokenId
-            if (nft.tokenid && !nft.tokenId) {
-              nft.tokenId = nft.tokenid;
+            if (nft && typeof nft === 'object') {
+              if (nft.tokenid && !nft.tokenId) {
+                nft.tokenId = nft.tokenid;
+              }
+              if (nft.contract && !nft.tokenId) {
+                nft.tokenId = nft.contract;
+              }
+              delete nft.tokenid;
+              delete nft.contract;
             }
-            // contract → tokenId
-            if (nft.contract && !nft.tokenId) {
-              nft.tokenId = nft.contract;
-            }
-            delete nft.tokenid;
-            delete nft.contract;
             return nft;
           });
+        } else if (wallet && typeof wallet === 'object') {
+          // nfts が未定義なら空配列に
+          wallet.nfts = [];
         }
       });
+    } else {
+      // wallets が未定義なら空配列に
+      newData.wallets = [];
     }
 
     const r = await fetch(BIN_URL, {
@@ -95,6 +110,9 @@ app.post('/api/update/status', async (req, res) => {
     });
     if (!r.ok) throw new Error(`JSONBin PUT failed: ${r.status}`);
     const json = await r.json();
+
+    console.log('✅ JSONBin updated record:', JSON.stringify(json.record, null, 2));
+
     return res.json(json.record || {});
   } catch (err) {
     console.error('🔥 Error updating status to JSONBin:', err);
