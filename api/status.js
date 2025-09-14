@@ -23,18 +23,26 @@ if (!JSON_BIN_API_KEY) {
 
 const baseUrl = JSON_BIN_STATUS_URL.replace(/\/+$/, '');
 
+// ===== GET =====
 router.get('/', async (req, res) => {
   try {
     const getUrl = `${baseUrl}/latest`;
+    console.log('📡 GET /api/status');
+    console.log('  GET先URL:', getUrl);
+
     const response = await fetch(getUrl, {
       method: 'GET',
       headers: { 'X-Master-Key': JSON_BIN_API_KEY }
     });
     const text = await response.text();
+    console.log('  JSONBin GET response:', response.status, text);
+
     if (!response.ok) throw new Error(`JSONBin GET失敗: ${response.status} ${text}`);
     let statusData = JSON.parse(text).record;
 
     if (statusData?.cameraNFT?.tokenId) {
+      console.log(`🔍 カメラNFT検出: tokenId=${statusData.cameraNFT.tokenId}`);
+
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
@@ -55,7 +63,9 @@ router.get('/', async (req, res) => {
       statusData.cameraNFT.owner = owner;
       statusData.cameraNFT.totalShots = totalShots;
 
-      await fetch(baseUrl, {
+      console.log(`📸 最新情報更新: owner=${owner}, totalShots=${totalShots}`);
+
+      const putRes = await fetch(baseUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -63,6 +73,9 @@ router.get('/', async (req, res) => {
         },
         body: JSON.stringify(statusData)
       });
+      const putText = await putRes.text();
+      console.log('  JSONBin PUT response:', putRes.status, putText);
+      if (!putRes.ok) throw new Error(`JSONBin PUT失敗: ${putRes.status} ${putText}`);
     }
 
     res.json(statusData);
@@ -73,11 +86,15 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ===== POST =====
 router.post('/', async (req, res) => {
   try {
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({ error: '更新データが空です' });
     }
+
+    console.log('📡 POST /api/status');
+    console.log('  Request body:', JSON.stringify(req.body));
 
     const response = await fetch(baseUrl, {
       method: 'PUT',
@@ -89,6 +106,8 @@ router.post('/', async (req, res) => {
     });
 
     const text = await response.text();
+    console.log('  JSONBin PUT response:', response.status, text);
+
     if (!response.ok) throw new Error(`JSONBin PUT失敗: ${response.status} ${text}`);
 
     const data = JSON.parse(text);

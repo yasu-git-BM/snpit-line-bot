@@ -28,13 +28,9 @@ app.get('/config.json', (req, res) => {
   });
 });
 
-// ===== /api/status =====
+// ===== APIルート =====
 app.use('/api/status', require('./api/status'));
-
-// ===== /api/config =====
 app.use('/api/config', require('./api/config'));
-
-// ===== /api/update =====
 app.use('/api/update', require('./api/update'));
 
 // ===== NFT情報取得API =====

@@ -14,16 +14,27 @@ if (!JSON_BIN_API_KEY) {
 }
 
 async function getCameraStatus() {
+  console.log('📡 GET /api/update');
+  console.log('  GET先URL:', `${JSON_BIN_STATUS_URL}/latest`);
+
   const res = await fetch(`${JSON_BIN_STATUS_URL}/latest`, {
     method: 'GET',
     headers: { 'X-Master-Key': JSON_BIN_API_KEY }
   });
-  if (!res.ok) throw new Error(`JSONBin GET失敗: ${res.status} ${await res.text()}`);
-  const data = await res.json();
+
+  const text = await res.text();
+  console.log('  JSONBin GET response:', res.status, text);
+
+  if (!res.ok) throw new Error(`JSONBin GET失敗: ${res.status} ${text}`);
+  const data = JSON.parse(text);
   return data.record;
 }
 
 async function updateCameraStatus(newStatus) {
+  console.log('📡 POST /api/update');
+  console.log('  PUT先URL:', JSON_BIN_STATUS_URL);
+  console.log('  Request body:', JSON.stringify(newStatus));
+
   const res = await fetch(JSON_BIN_STATUS_URL, {
     method: 'PUT',
     headers: {
@@ -32,11 +43,16 @@ async function updateCameraStatus(newStatus) {
     },
     body: JSON.stringify(newStatus)
   });
-  if (!res.ok) throw new Error(`JSONBin PUT失敗: ${res.status} ${await res.text()}`);
-  const data = await res.json();
+
+  const text = await res.text();
+  console.log('  JSONBin PUT response:', res.status, text);
+
+  if (!res.ok) throw new Error(`JSONBin PUT失敗: ${res.status} ${text}`);
+  const data = JSON.parse(text);
   return data.record;
 }
 
+// ===== GET =====
 router.get('/', async (req, res) => {
   try {
     const status = await getCameraStatus();
@@ -47,8 +63,12 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ===== POST =====
 router.post('/', async (req, res) => {
   try {
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ error: '更新データが空です' });
+    }
     const updated = await updateCameraStatus(req.body);
     res.json(updated);
   } catch (err) {
