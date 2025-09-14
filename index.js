@@ -8,8 +8,9 @@ const app = express();
 app.use(express.json());
 
 // ===== CORS設定 =====
+const FRONTEND_URL = process.env.FRONTEND_URL;
 app.use(cors({
-  origin: 'https://snpit-mon-register.vercel.app', // フロントのURL
+  origin: FRONTEND_URL, // 環境変数から読み込み
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -26,6 +27,21 @@ app.get('/config.json', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
     // 必要に応じて設定追加
   });
+});
+
+// ===== /api/status GET/POST =====
+// メモリ上に保持（本番ではDBやファイル保存推奨）
+let currentStatus = {
+  wallets: []
+};
+
+app.get('/api/status', (req, res) => {
+  res.json(currentStatus);
+});
+
+app.post('/api/status', (req, res) => {
+  currentStatus = req.body;
+  res.json(currentStatus);
 });
 
 // ===== NFT情報取得API =====
