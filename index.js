@@ -1,3 +1,4 @@
+// index.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -20,7 +21,7 @@ app.get('/', (req, res) => {
   res.status(200).send('✅ snpit-line-bot is running');
 });
 
-// ===== config.jsonルート =====
+// ===== GUI用 config.jsonルート =====
 app.get('/config.json', (req, res) => {
   res.json({
     apiVersion: '1.0',
@@ -28,18 +29,18 @@ app.get('/config.json', (req, res) => {
   });
 });
 
-// ===== APIルート（statusのみ変更） =====
-app.use('/api/status', require('./routes/statusRoute')); // ← ✅ ここだけ変更
+// ===== GistベースAPIルート =====
+app.use('/api/status', require('./api/status'));
 app.use('/api/config', require('./api/config'));
 app.use('/api/update', require('./api/update'));
 
-// ===== NFT情報取得API =====
+// ===== NFT情報取得API（個別tokenId） =====
 const RPC_URL = process.env.RPC_URL;
 const CAMERA_CONTRACT_ADDRESS = process.env.CAMERA_CONTRACT_ADDRESS;
 
 const ABI = [
-  "function ownerOf(uint256 tokenId) view returns (address)",
-  "function tokenURI(uint256 tokenId) view returns (string)"
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'function tokenURI(uint256 tokenId) view returns (string)'
 ];
 
 app.get('/api/nft-info/:tokenId', async (req, res) => {
