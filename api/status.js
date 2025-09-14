@@ -36,10 +36,8 @@ async function updateWalletsData(statusData) {
           if (nft.tokenId) {
             console.log(`🔍 NFT検出: tokenId=${nft.tokenId}`);
 
-            // 最新オーナー取得
             const owner = await contract.ownerOf(nft.tokenId);
 
-            // メタデータ取得
             let uri = await contract.tokenURI(nft.tokenId);
             if (uri.startsWith('ipfs://')) {
               uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
@@ -52,7 +50,6 @@ async function updateWalletsData(statusData) {
               attr => attr.trait_type === 'Total Shots'
             )?.value ?? 0;
 
-            // 更新判定と反映
             if (wallet['wallet address'] !== owner) {
               wallet['wallet address'] = owner;
               updated = true;
@@ -62,7 +59,6 @@ async function updateWalletsData(statusData) {
               updated = true;
             }
 
-            // Last Checked 更新
             wallet.lastChecked = new Date().toISOString();
             updated = true;
 
@@ -72,8 +68,10 @@ async function updateWalletsData(statusData) {
       }
     }
 
-    // ウォレット名でソート
+    // ソート: EnableShots降順 → wallet name昇順
     statusData.wallets.sort((a, b) => {
+      const shotsDiff = (b.enableShots ?? 0) - (a.enableShots ?? 0);
+      if (shotsDiff !== 0) return shotsDiff;
       const nameA = (a['wallet name'] || '').toLowerCase();
       const nameB = (b['wallet name'] || '').toLowerCase();
       return nameA.localeCompare(nameB, 'ja');
@@ -83,7 +81,6 @@ async function updateWalletsData(statusData) {
   return updated;
 }
 
-// ===== GET =====
 router.get('/', async (req, res) => {
   try {
     console.log('📡 GET /api/status');
@@ -126,7 +123,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ===== POST =====
 router.post('/', async (req, res) => {
   try {
     console.log('📡 POST /api/status');
