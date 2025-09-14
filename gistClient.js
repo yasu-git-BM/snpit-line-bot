@@ -1,4 +1,3 @@
-// gistClient.js
 const fetch = require('node-fetch');
 const { StatusSchema } = require('./lib/schema');
 const { normalizeWallets } = require('./lib/normalize');
@@ -53,11 +52,11 @@ async function updateGistJson(data) {
     throw new Error('更新データが不正です');
   }
 
-  const url = `https://api.github.com/gists/${GIST_ID}`;
+  const url = `${GIST_JSON_URL}`;
   const body = {
     files: {
       [GIST_JSON_FILE_NAME]: {
-        content: JSON.stringify(data, null, 2)
+        content: JSON.stringify(result.data, null, 2)
       }
     }
   };

@@ -56,6 +56,26 @@ function sortWallets(wallets) {
   });
 }
 
+function sanitizeStatusData(raw) {
+  const wallets = Array.isArray(raw.wallets) ? raw.wallets.map(w => {
+    const nfts = Array.isArray(w.nfts) ? w.nfts.map(nft => {
+      const copy = { ...nft };
+      copy.lastTotalShots = toNumOrNull(copy.lastTotalShots);
+      copy.tokenId = /^[0-9]+$/.test(copy.tokenId) ? Number(copy.tokenId) : copy.tokenId;
+      return copy;
+    }) : [];
+
+    return {
+      ...w,
+      maxShots: toNumOrNull(w.maxShots),
+      enableShots: toNumOrNull(w.enableShots),
+      nfts
+    };
+  }) : [];
+
+  return { wallets };
+}
+
 async function updateWalletsData(statusData) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
@@ -86,7 +106,7 @@ async function updateWalletsData(statusData) {
               )?.value ?? 0;
 
               wallet['wallet address'] = owner;
-              nft.lastTotalShots = totalShots;
+              nft.lastTotalShots = toNumOrNull(totalShots);
               wallet.lastChecked = new Date().toISOString();
               updated = true;
 
@@ -112,7 +132,6 @@ router.get('/', async (req, res) => {
   try {
     console.log('📡 GET /api/status');
     const statusData = await getGistJson();
-
     const updated = await updateWalletsData(statusData);
 
     if (updated) {
@@ -134,12 +153,13 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     console.log('📡 POST /api/status');
-    const statusData = req.body;
+    const raw = req.body;
 
-    if (!statusData || Object.keys(statusData).length === 0) {
+    if (!raw || Object.keys(raw).length === 0) {
       return res.status(400).json({ error: '更新データが空です' });
     }
 
+    const statusData = sanitizeStatusData(raw); // ✅ 型変換済み
     const updated = await updateWalletsData(statusData);
     await updateGistJson(statusData);
 
