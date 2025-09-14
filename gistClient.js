@@ -3,7 +3,6 @@ const { StatusSchema } = require('./lib/schema');
 const { normalizeWallets } = require('./lib/normalize');
 
 const GIST_ID = process.env.GIST_ID;
-const GIST_JSON_URL = process.env.GIST_JSON_URL;
 const GIST_JSON_FILE_NAME = process.env.GIST_JSON_FILE_NAME || 'camera-status.json';
 const GIST_JSON_TOKEN = process.env.GIST_JSON_TOKEN;
 
@@ -28,10 +27,14 @@ async function getGistJson() {
   const content = gist.files?.[GIST_JSON_FILE_NAME]?.content;
   if (!content) throw new Error(`Gistに ${GIST_JSON_FILE_NAME} が存在しません`);
 
+  console.log(`📦 Gist content raw:\n${content}`);
+
   let parsed;
   try {
     parsed = JSON.parse(content);
+    console.log(`✅ Gist JSON parse成功`);
   } catch (err) {
+    console.error(`❌ Gist JSON parse失敗: ${err.message}`);
     throw new Error(`Gist JSON parse失敗: ${err.message}`);
   }
 
@@ -41,7 +44,14 @@ async function getGistJson() {
     throw new Error('Gist JSON schemaが不正です');
   }
 
-  return normalizeWallets(result.data.wallets);
+  console.log(`✅ schema validation OK`);
+  console.log(`🧪 wallets.length = ${result.data.wallets?.length}`);
+  console.log(`🧪 wallets sample =`, JSON.stringify(result.data.wallets?.[0], null, 2));
+
+  const normalized = normalizeWallets(result.data.wallets);
+  console.log(`📤 normalized wallets sample =`, JSON.stringify(normalized.wallets?.[0], null, 2));
+
+  return normalized; // ✅ { wallets: [...] } を返す
 }
 
 // 🔹 GistにJSONデータを更新
@@ -52,7 +62,7 @@ async function updateGistJson(data) {
     throw new Error('更新データが不正です');
   }
 
-  const url = `${GIST_JSON_URL}`;
+  const url = `https://api.github.com/gists/${GIST_ID}`;
   const body = {
     files: {
       [GIST_JSON_FILE_NAME]: {
