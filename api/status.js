@@ -4,18 +4,29 @@ const fetch = require('node-fetch');
 
 const router = express.Router();
 
-const JSON_BIN_URL = process.env.JSON_BIN_URL;       // 例: https://api.jsonbin.io/v3/b/<BIN_ID>
-const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY; // Master Key
+const JSON_BIN_URL = process.env.JSON_BIN_URL;
+const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY;
+
+// ===== 安全チェック =====
+if (!JSON_BIN_URL || !/^https?:\/\//.test(JSON_BIN_URL)) {
+  throw new Error(
+    '環境変数 JSON_BIN_URL が未設定、または絶対URLではありません。\n' +
+    '例: https://api.jsonbin.io/v3/b/<BIN_ID>'
+  );
+}
+if (!JSON_BIN_API_KEY) {
+  throw new Error('環境変数 JSON_BIN_API_KEY が未設定です');
+}
 
 // 末尾スラッシュを削除して安全なベースURLに
-const baseUrl = JSON_BIN_URL ? JSON_BIN_URL.replace(/\/+$/, '') : '';
+const baseUrl = JSON_BIN_URL.replace(/\/+$/, '');
 
 router.get('/', async (req, res) => {
   try {
     const getUrl = `${baseUrl}/latest`;
     console.log('📡 GET /api/status');
     console.log('  GET先URL:', getUrl);
-    console.log('  JSON_BIN_API_KEY(先頭8文字):', JSON_BIN_API_KEY?.slice(0, 8));
+    console.log('  JSON_BIN_API_KEY(先頭8文字):', JSON_BIN_API_KEY.slice(0, 8));
 
     const response = await fetch(getUrl, {
       method: 'GET',
@@ -40,7 +51,7 @@ router.post('/', async (req, res) => {
     const putUrl = baseUrl;
     console.log('📡 POST /api/status');
     console.log('  PUT先URL:', putUrl);
-    console.log('  JSON_BIN_API_KEY(先頭8文字):', JSON_BIN_API_KEY?.slice(0, 8));
+    console.log('  JSON_BIN_API_KEY(先頭8文字):', JSON_BIN_API_KEY.slice(0, 8));
     console.log('  Request body:', JSON.stringify(req.body));
 
     const response = await fetch(putUrl, {
