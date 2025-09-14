@@ -13,6 +13,7 @@ const ABI = [
   "function tokenURI(uint256 tokenId) view returns (string)"
 ];
 
+// ===== Utility =====
 function toNumOrNull(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -56,11 +57,60 @@ function sortWallets(wallets) {
   });
 }
 
+function updateEnableShots(wallet, nowJST) {
+  if (!wallet || !Array.isArray(wallet.nfts)) return;
+
+  const maxShots = toNumOrNull(wallet.maxShots);
+  let enableShots = toNumOrNull(wallet.enableShots);
+  const lastChecked = new Date(wallet.lastChecked);
+  const now = new Date(nowJST);
+
+  if (maxShots === null) return;
+
+  // 時間ベースの回復
+  const recoveryHours = [6, 12, 18, 0];
+  let recoveryCount = 0;
+
+  for (const h of recoveryHours) {
+    const boundary = new Date(lastChecked);
+    boundary.setHours(h === 0 ? 0 : h, 0, 0, 0);
+    if (lastChecked < boundary && now >= boundary) {
+      recoveryCount++;
+    }
+  }
+
+  if (recoveryCount > 0) {
+    enableShots = Math.min(maxShots, (enableShots ?? 0) + 4 * recoveryCount);
+  }
+
+  // NFTベースの消費検知
+  for (const nft of wallet.nfts) {
+    const recorded = toNumOrNull(nft.lastTotalShots);
+    const latest = toNumOrNull(nft.latestTotalShots);
+
+    if (recorded === null || latest === null) continue;
+
+    const delta = latest - recorded;
+
+    if (delta > 0) {
+      enableShots = Math.max(0, enableShots - delta);
+      nft.lastTotalShots = latest;
+    } else if (delta < 0) {
+      enableShots = null;
+      nft.lastTotalShots = latest;
+    }
+  }
+
+  wallet.enableShots = enableShots;
+}
+
+// ===== Core Update =====
 async function updateWalletsData(statusData) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
   let updated = false;
+  const nowJST = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
   if (!Array.isArray(statusData.wallets)) {
     console.warn('⚠️ statusData.wallets が配列ではありません');
@@ -81,7 +131,7 @@ async function updateWalletsData(statusData) {
     for (const [nIdx, nft] of wallet.nfts.entries()) {
       const tokenId = nft?.tokenId ?? nft?.tokeinid;
 
-      if (tokenId === null || tokenId === undefined || tokenId === '') {
+      if (!tokenId) {
         console.warn(`⚠️ wallet[${wIdx}].nfts[${nIdx}] に tokenId が未設定`);
         continue;
       }
@@ -104,19 +154,20 @@ async function updateWalletsData(statusData) {
           attr => attr.trait_type === 'Total Shots'
         )?.value ?? 0;
 
-        nft.lastTotalShots = toNumOrNull(totalShots);
+        nft.latestTotalShots = toNumOrNull(totalShots);
         wallet['wallet address'] = owner;
-        wallet.lastChecked = new Date().toISOString();
 
         updated = true;
 
         console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, totalShots=${totalShots}`);
       } catch (err) {
         console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.reason || err.message}`);
-        wallet.lastChecked = new Date().toISOString();
         continue;
       }
     }
+
+    updateEnableShots(wallet, nowJST);
+    wallet.lastChecked = new Date().toISOString();
   }
 
   sortWallets(statusData.wallets);
