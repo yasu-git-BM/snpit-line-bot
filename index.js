@@ -1,21 +1,34 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const { ethers } = require('ethers');
-const fetch = require('node-fetch'); // Node 18以上なら不要
+const fetch = require('node-fetch');
 const app = express();
 
 app.use(express.json());
 
-// ======================
-// ルートアクセス（UptimeRobot用 keep-alive）
-// ======================
+// ===== CORS設定 =====
+app.use(cors({
+  origin: 'https://snpit-mon-register.vercel.app', // フロントのURL
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// ===== UptimeRobot用 keep-alive =====
 app.get('/', (req, res) => {
   res.status(200).send('✅ snpit-line-bot is running');
 });
 
-// ======================
-// NFT情報取得API
-// ======================
+// ===== config.jsonルート =====
+app.get('/config.json', (req, res) => {
+  res.json({
+    apiVersion: '1.0',
+    environment: process.env.NODE_ENV || 'development'
+    // 必要に応じて設定追加
+  });
+});
+
+// ===== NFT情報取得API =====
 const RPC_URL = process.env.RPC_URL;
 const CAMERA_CONTRACT_ADDRESS = process.env.CAMERA_CONTRACT_ADDRESS;
 
@@ -30,21 +43,16 @@ app.get('/api/nft-info/:tokenId', async (req, res) => {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
-    // オーナーアドレス取得
     const owner = await contract.ownerOf(tokenId);
-
-    // メタデータURI取得
     let uri = await contract.tokenURI(tokenId);
     if (uri.startsWith('ipfs://')) {
       uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
     }
 
-    // メタデータ取得
     const response = await fetch(uri);
     if (!response.ok) throw new Error(`メタデータ取得失敗: ${response.status}`);
     const metadata = await response.json();
 
-    // Total Shots 抽出
     const totalShots = metadata.attributes?.find(
       attr => attr.trait_type === 'Total Shots'
     )?.value ?? 0;
@@ -56,14 +64,7 @@ app.get('/api/nft-info/:tokenId', async (req, res) => {
   }
 });
 
-// ======================
-// 他の既存ルート（必要に応じて追加）
-// ======================
-// 例: /api/status, /api/config など
-
-// ======================
-// サーバ起動
-// ======================
+// ===== サーバ起動 =====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
