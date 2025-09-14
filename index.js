@@ -1,127 +1,70 @@
-// line_bot/index.js
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
-const fetch   = require('node-fetch'); // ①あなたの環境は node-fetch@2 を追加済み
-
+const { ethers } = require('ethers');
+const fetch = require('node-fetch'); // Node 18以上なら不要
 const app = express();
 
-// ===== CORS設定 =====
-const FRONTEND_URL = process.env.FRONTEND_URL;
-if (!FRONTEND_URL) {
-  console.error('❗ FRONTEND_URL が未設定です');
-  process.exit(1);
-}
-console.log('🔧 FRONTEND_URL =', FRONTEND_URL);
-
-app.use(cors({
-  origin: FRONTEND_URL,
-  methods: ['GET', 'POST'],
-  optionsSuccessStatus: 200
-}));
-
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// ===== JSONBin設定 =====
-const BIN_ID  = process.env.JSON_BIN_ID;
-const API_KEY = process.env.JSON_BIN_KEY;
-if (!BIN_ID || !API_KEY) {
-  console.error('❗ JSON_BIN_ID または JSON_BIN_KEY が未設定です');
-  process.exit(1);
-}
-const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-
-// ===== ポーリング間隔設定 =====
-const POLLING_INTERVAL_MS = parseInt(process.env.POLLING_INTERVAL_MS, 10) || 60000;
-console.log(`⏱ ポーリング間隔: ${POLLING_INTERVAL_MS} ms`);
-
-// ===== GET /api/config =====
-app.get('/api/config', (req, res) => {
-  res.json({
-    pollingIntervalMs: POLLING_INTERVAL_MS
-  });
+// ======================
+// ルートアクセス（UptimeRobot用 keep-alive）
+// ======================
+app.get('/', (req, res) => {
+  res.status(200).send('✅ snpit-line-bot is running');
 });
 
-// ===== POST /api/status =====
-// JSONBin 上の最新レコードを返却。レコードをそのまま返す（record 部分）。
-app.post('/api/status', async (req, res) => {
+// ======================
+// NFT情報取得API
+// ======================
+const RPC_URL = process.env.RPC_URL;
+const CAMERA_CONTRACT_ADDRESS = process.env.CAMERA_CONTRACT_ADDRESS;
+
+const ABI = [
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function tokenURI(uint256 tokenId) view returns (string)"
+];
+
+app.get('/api/nft-info/:tokenId', async (req, res) => {
+  const tokenId = req.params.tokenId;
   try {
-    const r = await fetch(`${BIN_URL}/latest`, {
-      method: 'GET',
-      headers: { 'X-Master-Key': API_KEY }
-    });
-    if (!r.ok) throw new Error(`JSONBin GET failed: ${r.status}`);
-    const json = await r.json();
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
-    console.log('📥 /api/status JSONBin record:', JSON.stringify(json.record, null, 2));
+    // オーナーアドレス取得
+    const owner = await contract.ownerOf(tokenId);
 
-    // 返却は record をそのまま（{ wallets: [...] } を想定）
-    return res.json(json.record || {});
-  } catch (err) {
-    console.error('🔥 Error fetching status from JSONBin:', err);
-    return res.status(500).json({ error: 'Failed to fetch status' });
-  }
-});
-
-// ===== POST /api/update/status =====
-// 受け取ったJSONを保存前にキー名を正規化（tokenid/contract → tokenId）して PUT 上書き。
-app.post('/api/update/status', async (req, res) => {
-  try {
-    console.log('📤 /api/update/status received body:', JSON.stringify(req.body, null, 2));
-
-    const newData = req.body || {};
-
-    // --- NFTキー名統一処理（tokenid, contract → tokenId に統一） ---
-    if (Array.isArray(newData.wallets)) {
-      newData.wallets.forEach(wallet => {
-        if (Array.isArray(wallet.nfts)) {
-          wallet.nfts = wallet.nfts.map(nft => {
-            if (nft && typeof nft === 'object') {
-              if (nft.tokenid && !nft.tokenId) {
-                nft.tokenId = nft.tokenid;
-              }
-              if (nft.contract && !nft.tokenId) {
-                nft.tokenId = nft.contract;
-              }
-              delete nft.tokenid;
-              delete nft.contract;
-            }
-            return nft;
-          });
-        } else if (wallet && typeof wallet === 'object') {
-          // nfts が未定義なら空配列に
-          wallet.nfts = [];
-        }
-      });
-    } else {
-      // wallets が未定義なら空配列に
-      newData.wallets = [];
+    // メタデータURI取得
+    let uri = await contract.tokenURI(tokenId);
+    if (uri.startsWith('ipfs://')) {
+      uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
     }
 
-    const r = await fetch(BIN_URL, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': API_KEY
-      },
-      body: JSON.stringify(newData)
-    });
-    if (!r.ok) throw new Error(`JSONBin PUT failed: ${r.status}`);
-    const json = await r.json();
+    // メタデータ取得
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error(`メタデータ取得失敗: ${response.status}`);
+    const metadata = await response.json();
 
-    console.log('✅ JSONBin updated record:', JSON.stringify(json.record, null, 2));
+    // Total Shots 抽出
+    const totalShots = metadata.attributes?.find(
+      attr => attr.trait_type === 'Total Shots'
+    )?.value ?? 0;
 
-    return res.json(json.record || {});
+    res.json({ owner, totalShots });
   } catch (err) {
-    console.error('🔥 Error updating status to JSONBin:', err);
-    return res.status(500).json({ error: 'Failed to update status' });
+    console.error('❌ /api/nft-info error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ===== サーバ起動 =====
+// ======================
+// 他の既存ルート（必要に応じて追加）
+// ======================
+// 例: /api/status, /api/config など
+
+// ======================
+// サーバ起動
+// ======================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Backend running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
