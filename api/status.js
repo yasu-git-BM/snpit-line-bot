@@ -40,31 +40,53 @@ router.get('/', async (req, res) => {
     if (!response.ok) throw new Error(`JSONBin GET失敗: ${response.status} ${text}`);
     let statusData = JSON.parse(text).record;
 
-    if (statusData?.cameraNFT?.tokenId) {
-      console.log(`🔍 カメラNFT検出: tokenId=${statusData.cameraNFT.tokenId}`);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
-      const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
+    let updated = false;
 
-      const owner = await contract.ownerOf(statusData.cameraNFT.tokenId);
-      let uri = await contract.tokenURI(statusData.cameraNFT.tokenId);
-      if (uri.startsWith('ipfs://')) {
-        uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    if (Array.isArray(statusData.wallets)) {
+      for (const wallet of statusData.wallets) {
+        if (Array.isArray(wallet.nfts)) {
+          for (const nft of wallet.nfts) {
+            if (nft.tokenId) {
+              console.log(`🔍 NFT検出: tokenId=${nft.tokenId}`);
+
+              // 最新オーナー取得
+              const owner = await contract.ownerOf(nft.tokenId);
+
+              // メタデータ取得
+              let uri = await contract.tokenURI(nft.tokenId);
+              if (uri.startsWith('ipfs://')) {
+                uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+              }
+              const metaRes = await fetch(uri);
+              if (!metaRes.ok) throw new Error(`メタデータ取得失敗: ${metaRes.status}`);
+              const metadata = await metaRes.json();
+
+              const totalShots = metadata.attributes?.find(
+                attr => attr.trait_type === 'Total Shots'
+              )?.value ?? 0;
+
+              // 更新判定と反映
+              if (wallet['wallet address'] !== owner) {
+                wallet['wallet address'] = owner;
+                updated = true;
+              }
+              if (nft.lastTotalShots !== totalShots) {
+                nft.lastTotalShots = totalShots;
+                updated = true;
+              }
+
+              console.log(`📸 更新候補: wallet=${wallet['wallet name']}, owner=${owner}, totalShots=${totalShots}`);
+            }
+          }
+        }
       }
+    }
 
-      const metaRes = await fetch(uri);
-      if (!metaRes.ok) throw new Error(`メタデータ取得失敗: ${metaRes.status}`);
-      const metadata = await metaRes.json();
-
-      const totalShots = metadata.attributes?.find(
-        attr => attr.trait_type === 'Total Shots'
-      )?.value ?? 0;
-
-      statusData.cameraNFT.owner = owner;
-      statusData.cameraNFT.totalShots = totalShots;
-
-      console.log(`📸 最新情報更新: owner=${owner}, totalShots=${totalShots}`);
-
+    if (updated) {
+      console.log('💾 JSONBinに更新を反映します');
       const putRes = await fetch(baseUrl, {
         method: 'PUT',
         headers: {
@@ -76,6 +98,8 @@ router.get('/', async (req, res) => {
       const putText = await putRes.text();
       console.log('  JSONBin PUT response:', putRes.status, putText);
       if (!putRes.ok) throw new Error(`JSONBin PUT失敗: ${putRes.status} ${putText}`);
+    } else {
+      console.log('ℹ️ 更新は不要でした');
     }
 
     res.json(statusData);
@@ -86,7 +110,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ===== POST =====
+// ===== POST（現状維持） =====
 router.post('/', async (req, res) => {
   try {
     if (!req.body || Object.keys(req.body).length === 0) {
