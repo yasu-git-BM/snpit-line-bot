@@ -1,21 +1,31 @@
-const express = require('express');
-const fs      = require('fs');
-const path    = require('path');
-const { updateStatus } = require('../polling/scheduler');
+// api/update.js
+const fetch = require('node-fetch');
 
-const router = express.Router();
+const CAMERA_STATUS_URL = process.env.JSON_BIN_CAMERA_STATUS_URL; // BIN for camera status
+const JSON_BIN_API_KEY  = process.env.JSON_BIN_API_KEY;           // Master Key
 
-router.post('/status', async (req, res) => {
-  try {
-    await updateStatus();
-    const data = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '../data/camera-status.json'), 'utf8')
-    );
-    res.json(data);
-  } catch (err) {
-    console.error('Error updating status:', err.message);
-    res.status(500).json({ error: 'Cannot update camera status' });
-  }
-});
+async function getCameraStatus() {
+  const res = await fetch(`${CAMERA_STATUS_URL}/latest`, {
+    method: 'GET',
+    headers: { 'X-Master-Key': JSON_BIN_API_KEY }
+  });
+  if (!res.ok) throw new Error(`JSONBin GET失敗: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.record;
+}
 
-module.exports = router;
+async function updateCameraStatus(newStatus) {
+  const res = await fetch(CAMERA_STATUS_URL, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': JSON_BIN_API_KEY
+    },
+    body: JSON.stringify(newStatus)
+  });
+  if (!res.ok) throw new Error(`JSONBin PUT失敗: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.record;
+}
+
+module.exports = { getCameraStatus, updateCameraStatus };
