@@ -23,42 +23,27 @@ if (!JSON_BIN_API_KEY) {
 
 const baseUrl = JSON_BIN_STATUS_URL.replace(/\/+$/, '');
 
-/**
- * 値を数値化（数値でない場合は null）
- */
 function toNumOrNull(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * 不整合判定
- * - enableShots が null/非数だが maxShots がある
- * - enableShots > maxShots
- * - enableShots < 0
- */
 function isInconsistent(wallet) {
   const maxShots = toNumOrNull(wallet.maxShots);
   const enableShots = toNumOrNull(wallet.enableShots);
 
-  if (maxShots === null && enableShots === null) return false; // 未登録は別カテゴリー
+  if (maxShots === null && enableShots === null) return false;
   if (enableShots === null && maxShots !== null) return true;
   if (enableShots !== null && enableShots < 0) return true;
   if (enableShots !== null && maxShots !== null && enableShots > maxShots) return true;
   return false;
 }
 
-/**
- * 未登録（maxShots・enableShotsがともに null）
- */
 function isUnregistered(wallet) {
   return (toNumOrNull(wallet.maxShots) === null) && (toNumOrNull(wallet.enableShots) === null);
 }
 
-/**
- * 並び順：未登録 → 不整合 → enableShots降順 → wallet name昇順
- */
 function sortWallets(wallets) {
   wallets.sort((a, b) => {
     const aUnreg = isUnregistered(a) ? 0 : 1;
@@ -71,12 +56,9 @@ function sortWallets(wallets) {
 
     const aEnable = toNumOrNull(a.enableShots);
     const bEnable = toNumOrNull(b.enableShots);
-    if (aEnable !== bEnable) {
-      // null は最下位、数値は降順
-      const aScore = aEnable === null ? -Infinity : aEnable;
-      const bScore = bEnable === null ? -Infinity : bEnable;
-      if (bScore !== aScore) return bScore - aScore;
-    }
+    const aScore = aEnable === null ? -Infinity : aEnable;
+    const bScore = bEnable === null ? -Infinity : bEnable;
+    if (bScore !== aScore) return bScore - aScore;
 
     const nameA = (a['wallet name'] || '').toLowerCase();
     const nameB = (b['wallet name'] || '').toLowerCase();
@@ -84,14 +66,6 @@ function sortWallets(wallets) {
   });
 }
 
-/**
- * wallets配列を更新
- * - NFTオーナーアドレス
- * - Total Shots
- * - Last Checked
- * - maxShots / enableShots は既存値を維持（未定義は null 補正）
- * - 並び順: 仕様の優先度に基づく sortWallets()
- */
 async function updateWalletsData(statusData) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
@@ -100,48 +74,43 @@ async function updateWalletsData(statusData) {
 
   if (Array.isArray(statusData.wallets)) {
     for (const wallet of statusData.wallets) {
-      // 型補正（未定義→null／数値化）
       wallet.maxShots = toNumOrNull(wallet.maxShots);
       wallet.enableShots = toNumOrNull(wallet.enableShots);
 
       if (Array.isArray(wallet.nfts)) {
         for (const nft of wallet.nfts) {
-          if (nft && nft.tokenId !== undefined && nft.tokenId !== null && `${nft.tokenId}` !== '') {
-            console.log(`🔍 NFT検出: tokenId=${nft.tokenId}`);
+          const tokenId = nft?.tokenId ?? nft?.tokeinid;
+          if (tokenId) {
+            try {
+              console.log(`🔍 NFT検出: tokenId=${tokenId}`);
+              const owner = await contract.ownerOf(tokenId);
+              let uri = await contract.tokenURI(tokenId);
+              if (uri.startsWith('ipfs://')) {
+                uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+              }
+              const metaRes = await fetch(uri);
+              if (!metaRes.ok) throw new Error(`メタデータ取得失敗: ${metaRes.status}`);
+              const metadata = await metaRes.json();
+              const totalShots = metadata.attributes?.find(
+                attr => attr.trait_type === 'Total Shots'
+              )?.value ?? 0;
 
-            const owner = await contract.ownerOf(nft.tokenId);
-
-            let uri = await contract.tokenURI(nft.tokenId);
-            if (uri.startsWith('ipfs://')) {
-              uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
-            }
-            const metaRes = await fetch(uri);
-            if (!metaRes.ok) throw new Error(`メタデータ取得失敗: ${metaRes.status}`);
-            const metadata = await metaRes.json();
-
-            const totalShots = metadata.attributes?.find(
-              attr => attr.trait_type === 'Total Shots'
-            )?.value ?? 0;
-
-            if (wallet['wallet address'] !== owner) {
               wallet['wallet address'] = owner;
-              updated = true;
-            }
-            if (nft.lastTotalShots !== totalShots) {
               nft.lastTotalShots = totalShots;
+              wallet.lastChecked = new Date().toISOString();
               updated = true;
+
+              console.log(`📸 更新: wallet=${wallet['wallet name']}, owner=${owner}, totalShots=${totalShots}`);
+            } catch (err) {
+              console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.reason || err.message}`);
+              wallet.lastChecked = new Date().toISOString();
+              continue;
             }
-
-            wallet.lastChecked = new Date().toISOString();
-            updated = true;
-
-            console.log(`📸 更新: wallet=${wallet['wallet name']}, owner=${owner}, totalShots=${totalShots}`);
           }
         }
       }
     }
 
-    // 並び替え（未登録→不整合→enableShots降順→名前昇順）
     sortWallets(statusData.wallets);
   }
 
