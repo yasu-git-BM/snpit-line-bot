@@ -1,4 +1,3 @@
-// api/status.js
 const express = require('express');
 const fetch = require('node-fetch');
 
@@ -18,9 +17,9 @@ if (!JSON_BIN_API_KEY) {
   throw new Error('環境変数 JSON_BIN_API_KEY が未設定です');
 }
 
-// 末尾スラッシュを削除して安全なベースURLに
 const baseUrl = JSON_BIN_URL.replace(/\/+$/, '');
 
+// ===== GET =====
 router.get('/', async (req, res) => {
   try {
     const getUrl = `${baseUrl}/latest`;
@@ -46,6 +45,7 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ===== POST =====
 router.post('/', async (req, res) => {
   try {
     const putUrl = baseUrl;

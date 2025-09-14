@@ -1,15 +1,20 @@
-// api/config.js
+const express = require('express');
 const fetch = require('node-fetch');
 
-const WALLET_ORDER_URL = process.env.JSON_BIN_WALLET_ORDER_URL; // BIN for wallet list
-const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY;          // Master Key
+const router = express.Router();
 
-// ³: POLLING_INTERVAL_MSimsw’èj
+const WALLET_ORDER_URL = process.env.JSON_BIN_WALLET_ORDER_URL;
+const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY;
 const POLLING_INTERVAL_MS = Number.parseInt(process.env.POLLING_INTERVAL_MS, 10);
 
-// ƒoƒŠƒf[ƒVƒ‡ƒ“i•s³/–¢İ’è‚Í–¾¦ƒGƒ‰[j
+if (!WALLET_ORDER_URL || !/^https?:\/\//.test(WALLET_ORDER_URL)) {
+  throw new Error('ç’°å¢ƒå¤‰æ•° JSON_BIN_WALLET_ORDER_URL ãŒæœªè¨­å®šã€ã¾ãŸã¯çµ¶å¯¾URLã§ã¯ã‚ã‚Šã¾ã›ã‚“');
+}
+if (!JSON_BIN_API_KEY) {
+  throw new Error('ç’°å¢ƒå¤‰æ•° JSON_BIN_API_KEY ãŒæœªè¨­å®šã§ã™');
+}
 if (!Number.isFinite(POLLING_INTERVAL_MS) || POLLING_INTERVAL_MS <= 0) {
-  throw new Error('POLLING_INTERVAL_MS ‚ª–¢İ’è‚Ü‚½‚Í•s³‚Å‚·i³‚Ì®”‚Ìƒ~ƒŠ•b‚Åw’è‚µ‚Ä‚­‚¾‚³‚¢j');
+  throw new Error('POLLING_INTERVAL_MS ãŒæœªè¨­å®šã¾ãŸã¯ä¸æ­£ã§ã™ï¼ˆæ­£ã®æ•´æ•°ã®ãƒŸãƒªç§’ã§æŒ‡å®šã—ã¦ãã ã•ã„ï¼‰');
 }
 
 async function fetchWalletOrder() {
@@ -17,18 +22,22 @@ async function fetchWalletOrder() {
     method: 'GET',
     headers: { 'X-Master-Key': JSON_BIN_API_KEY }
   });
-  if (!res.ok) throw new Error(`JSONBin GET¸”s: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(`JSONBin GETå¤±æ•—: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  // –¼‘O‡‚Éƒ\[ƒg
   return data.record.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function getConfig() {
-  const wallets = await fetchWalletOrder();
-  return {
-    pollInterval: POLLING_INTERVAL_MS,
-    wallets
-  };
-}
+router.get('/', async (req, res) => {
+  try {
+    const wallets = await fetchWalletOrder();
+    res.json({
+      pollInterval: POLLING_INTERVAL_MS,
+      wallets
+    });
+  } catch (err) {
+    console.error('âŒ /api/config GET error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-module.exports = { getConfig };
+module.exports = router;

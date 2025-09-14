@@ -3,8 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const { ethers } = require('ethers');
 const fetch = require('node-fetch');
-const app = express();
 
+const app = express();
 app.use(express.json());
 
 // ===== CORS設定 =====
@@ -28,46 +28,14 @@ app.get('/config.json', (req, res) => {
   });
 });
 
-// ===== JSONBin.io 設定 =====
-const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY;
-const JSON_BIN_URL = process.env.JSON_BIN_URL; // 例: https://api.jsonbin.io/v3/b/<BIN_ID>
+// ===== /api/status =====
+app.use('/api/status', require('./api/status'));
 
-// ===== /api/status GET =====
-app.get('/api/status', async (req, res) => {
-  try {
-    const response = await fetch(`${JSON_BIN_URL}/latest`, {
-      headers: {
-        'X-Master-Key': JSON_BIN_API_KEY
-      }
-    });
-    if (!response.ok) throw new Error(`JSONBin GET失敗: ${response.status}`);
-    const data = await response.json();
-    res.json(data.record);
-  } catch (err) {
-    console.error('❌ /api/status GET error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+// ===== /api/config =====
+app.use('/api/config', require('./api/config'));
 
-// ===== /api/status POST =====
-app.post('/api/status', async (req, res) => {
-  try {
-    const response = await fetch(JSON_BIN_URL, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSON_BIN_API_KEY
-      },
-      body: JSON.stringify(req.body)
-    });
-    if (!response.ok) throw new Error(`JSONBin PUT失敗: ${response.status}`);
-    const data = await response.json();
-    res.json(data.record);
-  } catch (err) {
-    console.error('❌ /api/status POST error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+// ===== /api/update =====
+app.use('/api/update', require('./api/update'));
 
 // ===== NFT情報取得API =====
 const RPC_URL = process.env.RPC_URL;
