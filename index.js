@@ -10,7 +10,7 @@ app.use(express.json());
 // ===== CORS設定 =====
 const FRONTEND_URL = process.env.FRONTEND_URL;
 app.use(cors({
-  origin: FRONTEND_URL, // 環境変数から読み込み
+  origin: FRONTEND_URL,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -25,23 +25,48 @@ app.get('/config.json', (req, res) => {
   res.json({
     apiVersion: '1.0',
     environment: process.env.NODE_ENV || 'development'
-    // 必要に応じて設定追加
   });
 });
 
-// ===== /api/status GET/POST =====
-// メモリ上に保持（本番ではDBやファイル保存推奨）
-let currentStatus = {
-  wallets: []
-};
+// ===== JSONBin.io 設定 =====
+const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY;
+const JSON_BIN_URL = process.env.JSON_BIN_URL; // 例: https://api.jsonbin.io/v3/b/<BIN_ID>
 
-app.get('/api/status', (req, res) => {
-  res.json(currentStatus);
+// ===== /api/status GET =====
+app.get('/api/status', async (req, res) => {
+  try {
+    const response = await fetch(`${JSON_BIN_URL}/latest`, {
+      headers: {
+        'X-Master-Key': JSON_BIN_API_KEY
+      }
+    });
+    if (!response.ok) throw new Error(`JSONBin GET失敗: ${response.status}`);
+    const data = await response.json();
+    res.json(data.record);
+  } catch (err) {
+    console.error('❌ /api/status GET error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/status', (req, res) => {
-  currentStatus = req.body;
-  res.json(currentStatus);
+// ===== /api/status POST =====
+app.post('/api/status', async (req, res) => {
+  try {
+    const response = await fetch(JSON_BIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSON_BIN_API_KEY
+      },
+      body: JSON.stringify(req.body)
+    });
+    if (!response.ok) throw new Error(`JSONBin PUT失敗: ${response.status}`);
+    const data = await response.json();
+    res.json(data.record);
+  } catch (err) {
+    console.error('❌ /api/status POST error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ===== NFT情報取得API =====
