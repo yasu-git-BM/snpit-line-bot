@@ -28,8 +28,8 @@ app.get('/config.json', (req, res) => {
   });
 });
 
-// ===== APIルート =====
-app.use('/api/status', require('./api/status'));
+// ===== APIルート（statusのみ変更） =====
+app.use('/api/status', require('./routes/statusRoute')); // ← ✅ ここだけ変更
 app.use('/api/config', require('./api/config'));
 app.use('/api/update', require('./api/update'));
 
