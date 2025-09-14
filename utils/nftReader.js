@@ -1,6 +1,6 @@
 // utils/nftReader.js
 const { ethers } = require('ethers');
-require('dotenv').config();
+const fetch = require('node-fetch'); // ✅ 明示的に追加
 
 // ABI 定義
 const ABI = [
@@ -12,7 +12,7 @@ const ABI = [
 const INFURA_ID = process.env.INFURA_PROJECT_ID;
 const RPC_URL = `https://polygon-mainnet.infura.io/v3/${INFURA_ID}`;
 
-const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+const provider = new ethers.JsonRpcProvider(RPC_URL);
 const contract = new ethers.Contract(
   process.env.CAMERA_CONTRACT_ADDRESS,
   ABI,
@@ -22,8 +22,12 @@ const contract = new ethers.Contract(
 // tokenURI からメタデータ取得
 async function fetchMetadata(tokenId) {
   try {
-    const uri = await contract.tokenURI(tokenId);
+    let uri = await contract.tokenURI(tokenId);
+    if (uri.startsWith('ipfs://')) {
+      uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    }
     const res = await fetch(uri);
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
     return await res.json();
   } catch (err) {
     console.error(`tokenURI取得失敗: ${tokenId}`, err);

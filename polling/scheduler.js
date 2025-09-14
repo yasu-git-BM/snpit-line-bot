@@ -1,38 +1,47 @@
-const fs   = require('fs');
-const path = require('path');
 const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
+const { getGistJson, updateGistJson } = require('../gistClient');
+const { normalizeWallets } = require('../lib/normalize');
 
-const cfgPath    = path.join(__dirname, '../data/bot-config.json');
-const statusPath = path.join(__dirname, '../data/camera-status.json');
-
-function loadConfig() {
-  return JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-}
+const POLLING_INTERVAL_MS = Number(process.env.POLLING_INTERVAL_MS) || 600000;
 
 async function updateStatus() {
-  const { pollingIntervalMs, tokenIds } = loadConfig();
-  const out = {};
+  const statusData = await getGistJson();
+  const wallets = normalizeWallets(statusData.wallets || []);
 
-  for (const id of tokenIds) {
-    try {
-      const owner = await fetchOwner(id);
-      const md    = await fetchMetadata(id);
-      if (owner && md) {
-        out[owner] = {
-          name: md.name || `Camera #${id}`,
-          image: md.image || '',
-          remainingShots:
-            md.attributes?.find(a => a.trait_type === 'Remaining Shots')?.value || 0
-        };
+  let updated = false;
+
+  for (const wallet of wallets) {
+    if (!Array.isArray(wallet.nfts)) continue;
+
+    for (const nft of wallet.nfts) {
+      const tokenId = nft.tokenId;
+      try {
+        const owner = await fetchOwner(tokenId);
+        const md = await fetchMetadata(tokenId);
+
+        if (owner && md) {
+          nft.lastTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
+          wallet['wallet address'] = owner;
+          wallet.lastChecked = new Date().toISOString();
+          updated = true;
+
+          console.log(`📸 更新: wallet=${wallet['wallet name']}, tokenId=${tokenId}, owner=${owner}`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.message}`);
+        wallet.lastChecked = new Date().toISOString();
       }
-    } catch (err) {
-      console.error(`Error fetching token ${id}:`, err.message);
     }
   }
 
-  fs.writeFileSync(statusPath, JSON.stringify(out, null, 2), 'utf8');
-  console.log('📄 camera-status.json updated');
-  return loadConfig().pollingIntervalMs;
+  if (updated) {
+    await updateGistJson({ wallets });
+    console.log('💾 Gistに更新を反映しました');
+  } else {
+    console.log('ℹ️ 更新は不要でした');
+  }
+
+  return POLLING_INTERVAL_MS;
 }
 
 if (require.main === module) {

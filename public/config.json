@@ -1,5 +1,0 @@
-{
-  "settingA": true,
-  "threshold": 5,
-  "message": "Hello from config.json"
-}

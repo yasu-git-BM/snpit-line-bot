@@ -1,11 +1,10 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const { ethers } = require('ethers');
+const { getGistJson, updateGistJson } = require('../gistClient');
 
 const router = express.Router();
 
-const JSON_BIN_STATUS_URL = process.env.JSON_BIN_STATUS_URL;
-const JSON_BIN_API_KEY = process.env.JSON_BIN_API_KEY;
 const RPC_URL = process.env.RPC_URL;
 const CAMERA_CONTRACT_ADDRESS = process.env.CAMERA_CONTRACT_ADDRESS;
 
@@ -13,15 +12,6 @@ const ABI = [
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function tokenURI(uint256 tokenId) view returns (string)"
 ];
-
-if (!JSON_BIN_STATUS_URL || !/^https?:\/\//.test(JSON_BIN_STATUS_URL)) {
-  throw new Error('環境変数 JSON_BIN_STATUS_URL が未設定、または絶対URLではありません');
-}
-if (!JSON_BIN_API_KEY) {
-  throw new Error('環境変数 JSON_BIN_API_KEY が未設定です');
-}
-
-const baseUrl = JSON_BIN_STATUS_URL.replace(/\/+$/, '');
 
 function toNumOrNull(v) {
   if (v === null || v === undefined || v === '') return null;
@@ -121,33 +111,13 @@ async function updateWalletsData(statusData) {
 router.get('/', async (req, res) => {
   try {
     console.log('📡 GET /api/status');
-    const getUrl = `${baseUrl}/latest`;
-
-    const response = await fetch(getUrl, {
-      method: 'GET',
-      headers: { 'X-Master-Key': JSON_BIN_API_KEY }
-    });
-    const text = await response.text();
-    console.log('  JSONBin GET response:', response.status, text);
-
-    if (!response.ok) throw new Error(`JSONBin GET失敗: ${response.status} ${text}`);
-    let statusData = JSON.parse(text).record;
+    const statusData = await getGistJson();
 
     const updated = await updateWalletsData(statusData);
 
     if (updated) {
-      console.log('💾 JSONBinに更新を反映します');
-      const putRes = await fetch(baseUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Master-Key': JSON_BIN_API_KEY
-        },
-        body: JSON.stringify(statusData)
-      });
-      const putText = await putRes.text();
-      console.log('  JSONBin PUT response:', putRes.status, putText);
-      if (!putRes.ok) throw new Error(`JSONBin PUT失敗: ${putRes.status} ${putText}`);
+      console.log('💾 Gistに更新を反映します');
+      await updateGistJson(statusData);
     } else {
       console.log('ℹ️ 更新は不要でした');
     }
@@ -164,25 +134,14 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     console.log('📡 POST /api/status');
-    let statusData = req.body;
+    const statusData = req.body;
 
     if (!statusData || Object.keys(statusData).length === 0) {
       return res.status(400).json({ error: '更新データが空です' });
     }
 
     const updated = await updateWalletsData(statusData);
-
-    const putRes = await fetch(baseUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSON_BIN_API_KEY
-      },
-      body: JSON.stringify(statusData)
-    });
-    const putText = await putRes.text();
-    console.log('  JSONBin PUT response:', putRes.status, putText);
-    if (!putRes.ok) throw new Error(`JSONBin PUT失敗: ${putRes.status} ${putText}`);
+    await updateGistJson(statusData);
 
     res.json(statusData);
 
