@@ -90,7 +90,7 @@ app.post('/webhook', (req, res, next) => {
     return res.status(200).send('OK');
   }
   next();
-}, middleware(config), async (req, res) => {
+}, middleware(lineConfig), async (req, res) => {
   console.log('✅ Webhook received:', JSON.stringify(req.body, null, 2));
   const events = req.body.events;
   const results = await Promise.all(events.map(handleEvent));
