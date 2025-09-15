@@ -96,7 +96,6 @@ app.post('/webhook', (req, res, next) => {
     return res.status(200).send('OK');
   }
 
-  // 署名がある場合は middleware に進む
   middleware(lineConfig)(req, res, async () => {
     console.log('✅ Webhook received:', JSON.stringify(req.body, null, 2));
     const events = req.body.events;
@@ -117,7 +116,7 @@ async function handleEvent(event) {
       console.log('🔹 fetchStatus triggered');
       try {
         const raw = await getGistJson();
-        const wallets = raw.wallets; //
+        const wallets = raw.wallets;
         const walletOrder = wallets.map(w => w['wallet address']);
         const statusData = {};
 
@@ -163,34 +162,9 @@ async function handleEvent(event) {
   const text = event.message.text.trim();
   console.log('💬 Text message:', text);
 
-  if (!text.includes('カメラ')) {
-    console.log('🔸 Sending menu template');
-    return lineClient.replyMessage(event.replyToken, {
-      type: 'template',
-      altText: '操作メニュー',
-      template: {
-        type: 'buttons',
-        title: '操作メニュー',
-        text: '以下から選択してください',
-        actions: [
-          {
-            type: 'postback',
-            label: '最新情報取得',
-            data: 'action=fetchStatus'
-          },
-          {
-            type: 'postback',
-            label: '設定画面表示',
-            data: 'action=showGUI'
-          }
-        ]
-      }
-    });
-  }
-
-  console.log('🔸 Sending camera status');
   try {
-    const wallets = await getGistJson();
+    const raw = await getGistJson();
+    const wallets = raw.wallets;
     const walletOrder = wallets.map(w => w['wallet address']);
     const statusData = {};
 
@@ -207,6 +181,33 @@ async function handleEvent(event) {
     }
 
     const flex = buildFlexMessage(statusData, walletOrder);
+
+    if (!text.includes('カメラ')) {
+      console.log('🔸 Sending menu template');
+      return lineClient.replyMessage(event.replyToken, {
+        type: 'template',
+        altText: '操作メニュー',
+        template: {
+          type: 'buttons',
+          title: '操作メニュー',
+          text: '以下から選択してください',
+          actions: [
+            {
+              type: 'postback',
+              label: '最新情報取得',
+              data: 'action=fetchStatus'
+            },
+            {
+              type: 'postback',
+              label: '設定画面表示',
+              data: 'action=showGUI'
+            }
+          ]
+        }
+      });
+    }
+
+    console.log('🔸 Sending camera status');
     return lineClient.replyMessage(event.replyToken, flex);
   } catch (err) {
     console.error('❌ LINE Bot error:', err);
