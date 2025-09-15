@@ -1,4 +1,3 @@
-// index.js
 console.log('🟢 index.js is running');
 console.log('🔐 LINE_CHANNEL_SECRET:', process.env.LINE_CHANNEL_SECRET);
 require('dotenv').config();
@@ -8,7 +7,6 @@ const { ethers } = require('ethers');
 const fetch = require('node-fetch');
 const { Client, middleware } = require('@line/bot-sdk');
 const { getGistJson } = require('./gistClient');
-const { buildFlexMessage } = require('./utils/flexBuilder');
 
 const app = express();
 app.use(express.json());
@@ -121,19 +119,26 @@ async function handleEvent(event) {
         const statusData = {};
 
         for (const wallet of wallets) {
-          if (!Array.isArray(wallet.nfts)) continue;
-          for (const nft of wallet.nfts) {
-            statusData[wallet['wallet address']] = {
-              name: nft.name || `Camera #${nft.tokenId}`,
-              image: nft.image || '',
-              remainingShots: nft.lastTotalShots ?? 0,
-              maxShots: wallet.maxShots ?? 16
-            };
-          }
+          statusData[wallet['wallet address']] = {
+            name: wallet['wallet name'],
+            enableShots: wallet.enableShots ?? 0,
+            maxShots: wallet.maxShots ?? 16
+          };
         }
 
-        const flex = buildFlexMessage(statusData, walletOrder);
-        return lineClient.replyMessage(event.replyToken, flex);
+        const lines = walletOrder.map(addr => {
+          const w = statusData[addr];
+          const label = getLabel(w.enableShots, w.maxShots);
+          const paddedName = w.name.padEnd(10, '　');
+          return `${label} ${paddedName}${w.enableShots}枚`;
+        });
+
+        const message = {
+          type: 'text',
+          text: `📸 撮影可能枚数一覧\n\n${lines.join('\n')}`
+        };
+
+        return lineClient.replyMessage(event.replyToken, message);
       } catch (err) {
         console.error('❌ fetchStatus error:', err);
         return lineClient.replyMessage(event.replyToken, {
@@ -169,18 +174,12 @@ async function handleEvent(event) {
     const statusData = {};
 
     for (const wallet of wallets) {
-      if (!Array.isArray(wallet.nfts)) continue;
-      for (const nft of wallet.nfts) {
-        statusData[wallet['wallet address']] = {
-          name: nft.name || `Camera #${nft.tokenId}`,
-          image: nft.image || '',
-          remainingShots: nft.lastTotalShots ?? 0,
-          maxShots: wallet.maxShots ?? 16
-        };
-      }
+      statusData[wallet['wallet address']] = {
+        name: wallet['wallet name'],
+        enableShots: wallet.enableShots ?? 0,
+        maxShots: wallet.maxShots ?? 16
+      };
     }
-
-    const flex = buildFlexMessage(statusData, walletOrder);
 
     if (!text.includes('カメラ')) {
       console.log('🔸 Sending menu template');
@@ -208,7 +207,20 @@ async function handleEvent(event) {
     }
 
     console.log('🔸 Sending camera status');
-    return lineClient.replyMessage(event.replyToken, flex);
+
+    const lines = walletOrder.map(addr => {
+      const w = statusData[addr];
+      const label = getLabel(w.enableShots, w.maxShots);
+      const paddedName = w.name.padEnd(10, '　');
+      return `${label} ${paddedName}${w.enableShots}枚`;
+    });
+
+    const message = {
+      type: 'text',
+      text: `📸 撮影可能枚数一覧\n\n${lines.join('\n')}`
+    };
+
+    return lineClient.replyMessage(event.replyToken, message);
   } catch (err) {
     console.error('❌ LINE Bot error:', err);
     return lineClient.replyMessage(event.replyToken, {
@@ -216,6 +228,20 @@ async function handleEvent(event) {
       text: 'エラーが発生しました。後でもう一度お試しください。'
     });
   }
+}
+
+// ===== 色ラベル関数 =====
+function getLabel(shots, max) {
+  const thresholds = {
+    16: { yellow: [1, 11], red: [12, 16] },
+    8:  { yellow: [1, 5],  red: [6, 8] },
+    4:  { yellow: [1, 1],  red: [2, 4] },
+    2:  { yellow: [1, 1],  red: [2, 2] }
+  };
+  const t = thresholds[max] || { yellow: [1, max - 1], red: [max, max] };
+  if (shots >= t.red[0] && shots <= t.red[1]) return '🟥';
+  if (shots >= t.yellow[0] && shots <= t.yellow[1]) return '🟨';
+  return '🟩';
 }
 
 // ===== サーバ起動 =====
