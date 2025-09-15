@@ -1,8 +1,8 @@
 // bot.js
 require('dotenv').config(); // ← .env から FRONTEND_URL を読み込む
 
-const { Client } = require('@line/bot-sdk');
 const express = require('express');
+const { Client, middleware } = require('@line/bot-sdk');
 const { getGistJson } = require('./gistClient');
 const { buildFlexMessage } = require('./utils/flexBuilder');
 
@@ -13,10 +13,9 @@ const config = {
 
 const client = new Client(config);
 const app = express();
-app.use(express.json());
 
-// 🔹 LINE webhook受信
-app.post('/webhook', async (req, res) => {
+// 🔹 LINE署名検証ミドルウェア（必須）
+app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
   const results = await Promise.all(events.map(handleEvent));
   res.status(200).json(results);
@@ -42,7 +41,7 @@ async function handleEvent(event) {
               name: nft.name || `Camera #${nft.tokenId}`,
               image: nft.image || '',
               remainingShots: nft.lastTotalShots ?? 0,
-              maxShots: wallet.maxShots ?? 16 // ← 追加
+              maxShots: wallet.maxShots ?? 16
             };
           }
         }
@@ -113,7 +112,7 @@ async function handleEvent(event) {
           name: nft.name || `Camera #${nft.tokenId}`,
           image: nft.image || '',
           remainingShots: nft.lastTotalShots ?? 0,
-          maxShots: wallet.maxShots ?? 16 // ← 追加
+          maxShots: wallet.maxShots ?? 16
         };
       }
     }
