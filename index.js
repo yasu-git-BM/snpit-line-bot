@@ -82,6 +82,7 @@ const lineConfig = {
 const lineClient = new Client(lineConfig);
 
 // ===== LINE Webhook受信ルート =====
+console.log('🔐 LINE config:', lineConfig);
 app.post('/webhook', middleware(lineConfig), async (req, res) => {
   console.log('✅ Webhook received:', JSON.stringify(req.body, null, 2));
   const events = req.body.events;
