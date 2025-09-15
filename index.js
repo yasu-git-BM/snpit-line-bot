@@ -1,4 +1,6 @@
 // index.js
+console.log('🟢 index.js is running');
+console.log('🔐 LINE_CHANNEL_SECRET:', process.env.LINE_CHANNEL_SECRET);
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
