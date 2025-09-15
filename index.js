@@ -84,8 +84,13 @@ const lineConfig = {
 const lineClient = new Client(lineConfig);
 
 // ===== LINE Webhook受信ルート =====
-console.log('🔐 LINE config:', lineConfig);
-app.post('/webhook', middleware(lineConfig), async (req, res) => {
+app.post('/webhook', (req, res, next) => {
+  if (!req.headers['x-line-signature']) {
+    console.log('⚠️ Webhook test request detected, skipping signature validation');
+    return res.status(200).send('OK');
+  }
+  next();
+}, middleware(config), async (req, res) => {
   console.log('✅ Webhook received:', JSON.stringify(req.body, null, 2));
   const events = req.body.events;
   const results = await Promise.all(events.map(handleEvent));
