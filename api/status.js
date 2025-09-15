@@ -57,7 +57,7 @@ function sortWallets(wallets) {
   });
 }
 
-function updateEnableShots(wallet, nowJST) {
+function updateEnableShots(wallet, nowJST, options = {}) {
   if (!wallet || !Array.isArray(wallet.nfts)) return;
 
   const maxShots = toNumOrNull(wallet.maxShots);
@@ -66,6 +66,11 @@ function updateEnableShots(wallet, nowJST) {
   const now = new Date(nowJST);
 
   if (maxShots === null) return;
+
+  if (options.forceOverride === true) {
+    wallet.enableShots = enableShots;
+    return;
+  }
 
   // 時間ベースの回復
   const recoveryHours = [6, 12, 18, 0];
@@ -105,7 +110,7 @@ function updateEnableShots(wallet, nowJST) {
 }
 
 // ===== Core Update =====
-async function updateWalletsData(statusData) {
+async function updateWalletsData(statusData, options = {}) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
@@ -166,7 +171,7 @@ async function updateWalletsData(statusData) {
       }
     }
 
-    updateEnableShots(wallet, nowJST);
+    updateEnableShots(wallet, nowJST, options);
     wallet.lastChecked = new Date().toISOString();
   }
 
@@ -199,13 +204,14 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     console.log('📡 POST /api/status');
-    const statusData = req.body;
+    const { wallets, forceOverride } = req.body;
 
-    if (!statusData || Object.keys(statusData).length === 0) {
-      return res.status(400).json({ error: '更新データが空です' });
+    if (!Array.isArray(wallets)) {
+      return res.status(400).json({ error: 'wallets配列が必要です' });
     }
 
-    const updated = await updateWalletsData(statusData);
+    const statusData = { wallets };
+    const updated = await updateWalletsData(statusData, { forceOverride });
     await updateGistJson(statusData);
 
     res.json(statusData);
