@@ -116,7 +116,8 @@ async function handleEvent(event) {
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
       try {
-        const wallets = await getGistJson();
+        const raw = await getGistJson();
+        const wallets = raw.wallets; //
         const walletOrder = wallets.map(w => w['wallet address']);
         const statusData = {};
 
