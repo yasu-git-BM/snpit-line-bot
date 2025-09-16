@@ -71,6 +71,9 @@ async function updateWalletsData(statusData, options = {}) {
     return false;
   }
 
+  // =====================================================
+  // Wallet
+  // =====================================================
   for (const [wIdx, wallet] of statusData.wallets.entries()) {
     console.log(`🧪 wallet[${wIdx}]: ${wallet['wallet name']}`);
 
@@ -82,6 +85,9 @@ async function updateWalletsData(statusData, options = {}) {
       continue;
     }
 
+    // =====================================================
+    // NFT 
+    // =====================================================
     for (const [nIdx, nft] of wallet.nfts.entries()) {
       const tokenId = nft?.tokenId ?? nft?.tokeinid;
 
@@ -93,6 +99,8 @@ async function updateWalletsData(statusData, options = {}) {
       try {
         console.log(`🔍 NFT検出: wallet=${wallet['wallet name']}, tokenId=${tokenId}`);
 
+		//-----------------------------------------
+		// NFTから最新情報取得
         const owner = await contract.ownerOf(tokenId);
         let uri = await contract.tokenURI(tokenId);
 
@@ -108,23 +116,24 @@ async function updateWalletsData(statusData, options = {}) {
           attr => attr.trait_type === 'Total Shots'
         )?.value ?? 0;
 
-        nft.latestTotalShots = toNumOrNull(totalShots);
+        nft.currentTotalShots = toNumOrNull(totalShots);
         wallet['wallet address'] = owner;
 
         updated = true;
 
-        console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, totalShots=${totalShots}`);
+        console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, Last totalShots = ${nft.lastTotalShots} ---> New CuurentTotalShots=${totalShots}`);
       } catch (err) {
         console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.reason || err.message}`);
         continue;
       }
-    }
+    }// NFT
 
     updateEnableShots(wallet, nowJST, options);
 
     // GUI補正時は lastChecked を更新しない
     if (!options.forceOverride) {
       wallet.lastChecked = new Date().toISOString();
+      wallet.manualOverride = false;
     }
   }
 
@@ -132,10 +141,10 @@ async function updateWalletsData(statusData, options = {}) {
   return updated;
 }
 
-// ===== GET =====
+// ===== GET(GUIから補正処理以外) =====
 router.get('/', async (req, res) => {
   try {
-    console.log('📡 GET /api/status');
+    console.log('📡 GET /api/status START');
     const statusData = await getGistJson();
     const updated = await updateWalletsData(statusData);
 
@@ -147,16 +156,17 @@ router.get('/', async (req, res) => {
     }
 
     res.json(statusData);
+    console.log('📡 GET /api/status END');
   } catch (err) {
     console.error('❌ /api/status GET error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== POST =====
+// ===== POST(GUIからの補正処理) =====
 router.post('/', async (req, res) => {
   try {
-    console.log('📡 POST /api/status');
+    console.log('📡 POST /api/status START');
     const { wallets, forceOverride } = req.body;
 
     if (!Array.isArray(wallets)) {
@@ -168,6 +178,7 @@ router.post('/', async (req, res) => {
     await updateGistJson(statusData);
 
     res.json(statusData);
+    console.log('📡 POST /api/status END');
   } catch (err) {
     console.error('❌ /api/status POST error:', err);
     res.status(500).json({ error: err.message });
