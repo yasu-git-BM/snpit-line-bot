@@ -64,7 +64,13 @@ async function updateWalletsData(statusData, options = {}) {
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
   let updated = false;
-  const nowJST = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+
+  function getJSTNow() {
+    const nowUTC = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000; // 9時間分のミリ秒
+    return new Date(nowUTC.getTime() + jstOffset);
+  }
+  const now = getJSTNow();
 
   if (!Array.isArray(statusData.wallets)) {
     console.warn('⚠️ statusData.wallets が配列ではありません');
@@ -128,7 +134,7 @@ async function updateWalletsData(statusData, options = {}) {
       }
     }// NFT
 
-    updateEnableShots(wallet, nowJST, options);
+    updateEnableShots(wallet, now, options);
 
     // GUI補正時は lastChecked を更新しない
     if (!options.forceOverride) {
