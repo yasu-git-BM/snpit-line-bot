@@ -1,6 +1,7 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const { ethers } = require('ethers');
+const { DateTime } = require('luxon');
 const { getGistJson, updateGistJson } = require('../gistClient');
 const { updateEnableShots } = require('../lib/updateEnableStatus');
 
@@ -63,23 +64,15 @@ async function updateWalletsData(statusData, options = {}) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
-  let updated = false;
+  const nowJST = DateTime.now().setZone('Asia/Tokyo'); // ← JSTを明示的に生成
 
-  function getJSTNow() {
-    const nowUTC = new Date();
-    const jstOffset = 9 * 60 * 60 * 1000; // 9時間分のミリ秒
-    return new Date(nowUTC.getTime() + jstOffset);
-  }
-  const now = getJSTNow();
+  let updated = false;
 
   if (!Array.isArray(statusData.wallets)) {
     console.warn('⚠️ statusData.wallets が配列ではありません');
     return false;
   }
 
-  // =====================================================
-  // Wallet
-  // =====================================================
   for (const [wIdx, wallet] of statusData.wallets.entries()) {
     console.log(`🧪 wallet[${wIdx}]: ${wallet['wallet name']}`);
 
@@ -91,9 +84,6 @@ async function updateWalletsData(statusData, options = {}) {
       continue;
     }
 
-    // =====================================================
-    // NFT 
-    // =====================================================
     for (const [nIdx, nft] of wallet.nfts.entries()) {
       const tokenId = nft?.tokenId ?? nft?.tokeinid;
 
@@ -105,8 +95,6 @@ async function updateWalletsData(statusData, options = {}) {
       try {
         console.log(`🔍 NFT検出: wallet=${wallet['wallet name']}, tokenId=${tokenId}`);
 
-		//-----------------------------------------
-		// NFTから最新情報取得
         const owner = await contract.ownerOf(tokenId);
         let uri = await contract.tokenURI(tokenId);
 
@@ -127,18 +115,17 @@ async function updateWalletsData(statusData, options = {}) {
 
         updated = true;
 
-        console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, Last totalShots = ${nft.lastTotalShots} ---> New CuurentTotalShots=${totalShots}`);
+        console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, Last totalShots = ${nft.lastTotalShots} ---> New CurrentTotalShots=${totalShots}`);
       } catch (err) {
         console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.reason || err.message}`);
         continue;
       }
-    }// NFT
+    }
 
-    updateEnableShots(wallet, now, options);
+    updateEnableShots(wallet, nowJST, options); // ← JSTを渡す
 
-    // GUI補正時は lastChecked を更新しない
     if (!options.forceOverride) {
-      wallet.lastChecked = new Date().toISOString();
+      wallet.lastChecked = nowJST.toISO(); // ← JSTのISO形式で保存
       wallet.manualOverride = false;
     }
   }
