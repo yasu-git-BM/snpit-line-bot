@@ -35,8 +35,8 @@ async function updateStatus() {
   const statusData = await getGistJson();
   const wallets = normalizeWallets(statusData.wallets || []);
 
-  console.log(`[debug] statusData: ${statusData}`);
-  console.log(`[debug] normalized wallets: ${wallets}`);
+  console.log('[debug] statusData:', JSON.stringify(statusData, null, 2));
+  console.log('[debug] normalized wallets:', JSON.stringify(wallets, null, 2));
 
   let updated = false;
 
