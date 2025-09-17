@@ -1,3 +1,4 @@
+console.log('[scheduler] 起動しました');
 require('dotenv').config();
 
 const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
