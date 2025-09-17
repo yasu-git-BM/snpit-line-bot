@@ -4,9 +4,9 @@ function getColorBySlots(shots, maxSlots) {
   }
 
   const thresholds = {
-    16: { yellow: [1, 11], red: [12, 16] },
-    8:  { yellow: [1, 5],  red: [6, 8] },
-    4:  { yellow: [1, 1],  red: [2, 4] },
+    16: { yellow: [9, 12], red: [13, 16] },
+    8:  { yellow: [5, 6],  red: [7, 8] },
+    4:  { yellow: [3, 3],  red: [4, 4] },
     2:  { yellow: [1, 1],  red: [2, 2] }
   };
 
