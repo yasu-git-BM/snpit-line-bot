@@ -29,6 +29,9 @@ function getTimeSlot(now = new Date()) {
 }
 
 async function updateStatus() {
+
+  console.log(`[scheduler] ポーリング開始: ${new Date().toISOString()}`);
+  
   const statusData = await getGistJson();
   const wallets = normalizeWallets(statusData.wallets || []);
 
@@ -105,11 +108,11 @@ async function updateStatus() {
   return POLLING_INTERVAL_MS;
 }
 
-if (require.main === module) {
+//if (require.main === module) {
   (async () => {
     const interval = await updateStatus();
     setInterval(updateStatus, interval);
   })();
-}
+//}
 
 module.exports = { updateStatus };
