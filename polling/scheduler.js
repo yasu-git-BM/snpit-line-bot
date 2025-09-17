@@ -29,93 +29,105 @@ function getTimeSlot(now = new Date()) {
 }
 
 async function updateStatus() {
-
   console.log(`[scheduler] ポーリング開始: ${new Date().toISOString()}`);
-  
-  const statusData = await getGistJson();
-  const wallets = normalizeWallets(statusData.wallets || []);
 
-  console.log('[debug] statusData:', JSON.stringify(statusData, null, 2));
-  console.log('[debug] normalized wallets:', JSON.stringify(wallets, null, 2));
+  try {
+    const statusData = await getGistJson();
+    const rawWallets = statusData?.wallets;
+    const wallets = Array.isArray(rawWallets) ? normalizeWallets(rawWallets) : [];
 
-  let updated = false;
+    console.log('[debug] statusData:', JSON.stringify(statusData, null, 2));
+    console.log('[debug] normalized wallets:', JSON.stringify(wallets, null, 2));
 
-  for (const wallet of wallets) {
-    if (!Array.isArray(wallet.nfts)) continue;
-
-    for (const nft of wallet.nfts) {
-      const tokenId = nft.tokenId;
-      try {
-        const owner = await fetchOwner(tokenId);
-        const md = await fetchMetadata(tokenId);
-
-        if (owner && md) {
-          nft.lastTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
-          wallet['wallet address'] = owner;
-          wallet.lastChecked = new Date().toISOString();
-          updated = true;
-
-          console.log(`📸 更新: wallet=${wallet['wallet name']}, tokenId=${tokenId}, owner=${owner}`);
-        }
-      } catch (err) {
-        console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.message}`);
-        wallet.lastChecked = new Date().toISOString();
-      }
+    if (!Array.isArray(wallets)) {
+      console.warn('⚠️ walletsが配列ではありません。スキップします');
+      return POLLING_INTERVAL_MS;
     }
-  }
 
-  await updateGistJson({ wallets });         // 毎回ここで更新する。(wallet.lastCheckedは必ず更新するから)
+    let updated = false;
 
-  if (updated) {
-    // await updateGistJson({ wallets });         // ここじゃなくて
-    console.log('💾 Gistに更新を反映しました');
+    for (const wallet of wallets) {
+      if (!Array.isArray(wallet.nfts)) continue;
 
-    // 🔸 通知判定と送信
-    const now = new Date();
-    const slot = getTimeSlot(now);
-    if (slot && (!lastNotified[slot] || now - lastNotified[slot] > 1000 * 60 * 60)) {
-      const hasShots = wallets.some(w =>
-        Array.isArray(w.nfts) &&
-        w.nfts.some(nft => (nft.lastTotalShots ?? 0) > 0)
-      );
+      for (const nft of wallet.nfts) {
+        const tokenId = nft.tokenId;
+        try {
+          const owner = await fetchOwner(tokenId);
+          const md = await fetchMetadata(tokenId);
 
-      if (hasShots) {
-        const walletOrder = wallets.map(w => w['wallet address']);
-        const statusPayload = {};
+          if (owner && md) {
+            nft.lastTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
+            wallet['wallet address'] = owner;
+            wallet.lastChecked = new Date().toISOString();
+            updated = true;
 
-        for (const wallet of wallets) {
-          if (!Array.isArray(wallet.nfts)) continue;
-
-          for (const nft of wallet.nfts) {
-            statusPayload[wallet['wallet address']] = {
-              name: nft.name || `Camera #${nft.tokenId}`,
-              image: nft.image || '',
-              remainingShots: nft.lastTotalShots ?? 0,
-              maxShots: wallet.maxShots ?? 16
-            };
+            console.log(`📸 更新: wallet=${wallet['wallet name']}, tokenId=${tokenId}, owner=${owner}`);
           }
+        } catch (err) {
+          console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.message}`);
+          wallet.lastChecked = new Date().toISOString();
         }
-
-        const flex = buildFlexMessage(statusPayload, walletOrder);
-        await client.pushMessage(process.env.LINE_USER_ID, flex);
-        lastNotified[slot] = now;
-        console.log(`📨 通知送信済み（${slot}）`);
-      } else {
-        console.log('🔕 通知スキップ（全ウォレット残枚数ゼロ）');
       }
     }
-  } else {
-    console.log('ℹ️ 更新は不要でした');
+
+    await updateGistJson({ wallets }); // 毎回保存（lastCheckedは必ず更新される）
+
+    if (updated) {
+      console.log('💾 Gistに更新を反映しました');
+
+      const now = new Date();
+      const slot = getTimeSlot(now);
+      if (slot && (!lastNotified[slot] || now - lastNotified[slot] > 1000 * 60 * 60)) {
+        const hasShots = wallets.some(w =>
+          Array.isArray(w.nfts) &&
+          w.nfts.some(nft => (nft.lastTotalShots ?? 0) > 0)
+        );
+
+        if (hasShots) {
+          const walletOrder = wallets.map(w => w['wallet address']);
+          const statusPayload = {};
+
+          for (const wallet of wallets) {
+            if (!Array.isArray(wallet.nfts)) continue;
+
+            for (const nft of wallet.nfts) {
+              statusPayload[wallet['wallet address']] = {
+                name: nft.name || `Camera #${nft.tokenId}`,
+                image: nft.image || '',
+                remainingShots: nft.lastTotalShots ?? 0,
+                maxShots: wallet.maxShots ?? 16
+              };
+            }
+          }
+
+          const flex = buildFlexMessage(statusPayload, walletOrder);
+          await client.pushMessage(process.env.LINE_USER_ID, flex);
+          lastNotified[slot] = now;
+          console.log(`📨 通知送信済み（${slot}）`);
+        } else {
+          console.log('🔕 通知スキップ（全ウォレット残枚数ゼロ）');
+        }
+      }
+    } else {
+      console.log('ℹ️ 更新は不要でした');
+    }
+  } catch (err) {
+    console.error('⛔️ ポーリング中に例外:', err);
   }
 
   return POLLING_INTERVAL_MS;
 }
 
-//if (require.main === module) {
-  (async () => {
+// ポーリング起動（requireされた場合でも動く）
+(async () => {
+  try {
     const interval = await updateStatus();
-    setInterval(updateStatus, interval);
-  })();
-//}
+    setInterval(() => {
+      updateStatus().catch(err => console.error('⛔️ ポーリング失敗:', err));
+    }, interval);
+  } catch (err) {
+    console.error('⛔️ 初回ポーリング失敗:', err);
+  }
+})();
 
 module.exports = { updateStatus };
