@@ -249,3 +249,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
+// index.js のどこか（できれば最下部）に追加
+require('./polling/scheduler');

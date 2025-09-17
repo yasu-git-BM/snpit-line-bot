@@ -57,8 +57,10 @@ async function updateStatus() {
     }
   }
 
+  await updateGistJson({ wallets });         // 毎回ここで更新する。(wallet.lastCheckedは必ず更新するから)
+
   if (updated) {
-    await updateGistJson({ wallets });
+    // await updateGistJson({ wallets });         // ここじゃなくて
     console.log('💾 Gistに更新を反映しました');
 
     // 🔸 通知判定と送信
