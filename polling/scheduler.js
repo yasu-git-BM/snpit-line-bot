@@ -33,16 +33,10 @@ async function updateStatus() {
 
   try {
     const statusData = await getGistJson();
-    const rawWallets = statusData?.wallets;
-    const wallets = Array.isArray(rawWallets) ? normalizeWallets(rawWallets) : [];
+    const wallets = normalizeWallets(statusData?.wallets ?? []);
 
     console.log('[debug] statusData:', JSON.stringify(statusData, null, 2));
     console.log('[debug] normalized wallets:', JSON.stringify(wallets, null, 2));
-
-    if (!Array.isArray(wallets)) {
-      console.warn('⚠️ walletsが配列ではありません。スキップします');
-      return POLLING_INTERVAL_MS;
-    }
 
     let updated = false;
 
@@ -70,7 +64,7 @@ async function updateStatus() {
       }
     }
 
-    await updateGistJson({ wallets }); // 毎回保存（lastCheckedは必ず更新される）
+    await updateGistJson({ wallets });
 
     if (updated) {
       console.log('💾 Gistに更新を反映しました');
