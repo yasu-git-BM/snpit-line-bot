@@ -5,6 +5,7 @@ const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
 const { getGistJson, updateGistJson } = require('../gistClient');
 const { normalizeWallets } = require('../lib/normalize');
 const { buildFlexMessage } = require('../utils/flexBuilder');
+const { updateWalletsData } = require('../status'); // ✅ 追加
 const { Client } = require('@line/bot-sdk');
 
 const POLLING_INTERVAL_MS = Number(process.env.POLLING_INTERVAL_MS) || 600000;
@@ -76,6 +77,9 @@ async function updateStatus() {
         }
       }
     }
+
+    // ✅ enableShotsの再計算を実行（manualOverrideを無視）
+    await updateWalletsData({ wallets }, { ignoreManual: true });
 
     if (updated && isValidWallets(wallets)) {
       await updateGistJson({ wallets });
