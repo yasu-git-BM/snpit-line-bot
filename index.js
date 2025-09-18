@@ -6,7 +6,9 @@ const cors = require('cors');
 const { ethers } = require('ethers');
 const fetch = require('node-fetch');
 const { Client, middleware } = require('@line/bot-sdk');
-const { getGistJson } = require('./gistClient');
+//const { getGistJson } = require('./gistClient');
+const { updateWalletsData } = require('../api/status'); // ✅ 追加
+const { getGistJson, updateGistJson } = require('./gistClient');
 
 const app = express();
 app.use(express.json());
@@ -108,9 +110,6 @@ async function handleEvent(event) {
   console.log('📩 Event received:', JSON.stringify(event, null, 2));
   console.log(`📩 event.type:${event.type}`);
 
-  const { getGistJson, updateGistJson } = require('./gistClient');
-  const { updateWalletsData } = require('./api/status');
-
   if (event.type === 'postback') {
     const data = event.postback.data;
     console.log('🔸 Postback:', data);
@@ -173,6 +172,9 @@ async function handleEvent(event) {
 
   const text = event.message.text.trim();
   console.log('💬 Text message:', text);
+
+
+  const statusData = await getGistJson();
 
   // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
   console.log(`[LINE] updateWalletsData START`);
