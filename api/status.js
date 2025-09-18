@@ -1,4 +1,3 @@
-// ✅ 修正済みの api/status.js
 const express = require('express');
 const fetch = require('node-fetch');
 const { ethers } = require('ethers');
@@ -61,9 +60,9 @@ function sortWallets(wallets) {
 
 // ===== Core Update =====
 async function updateWalletsData(statusData, options = {}) {
-
   console.log(`### updateWalletsData START `);
-  
+
+  const { skipOwner = false } = options;
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
@@ -95,7 +94,13 @@ async function updateWalletsData(statusData, options = {}) {
 
       try {
         console.log(`🔍 NFT検出: wallet=${wallet['wallet name']}, tokenId=${tokenId}`);
-        const owner = await contract.ownerOf(tokenId);
+
+        let owner;
+        if (!skipOwner) {
+          owner = await contract.ownerOf(tokenId);
+          wallet['wallet address'] = owner;
+        }
+
         let uri = await contract.tokenURI(tokenId);
         if (uri.startsWith('ipfs://')) {
           uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
@@ -107,10 +112,9 @@ async function updateWalletsData(statusData, options = {}) {
         const totalShots = metadata.attributes?.find(attr => attr.trait_type === 'Total Shots')?.value ?? 0;
 
         nft.currentTotalShots = toNumOrNull(totalShots);
-        wallet['wallet address'] = owner;
         updated = true;
 
-        console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, Last totalShots = ${nft.lastTotalShots} ---> New CurrentTotalShots=${totalShots}`);
+        console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner ?? '(skipped)'}, Last totalShots = ${nft.lastTotalShots} ---> New CurrentTotalShots=${totalShots}`);
       } catch (err) {
         console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.reason || err.message}`);
         continue;

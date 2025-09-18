@@ -118,7 +118,7 @@ async function handleEvent(event) {
       console.log('🔹 fetchStatus triggered');
       try {
         const statusData = await getGistJson();
-        const updated = await updateWalletsData(statusData, { ignoreManual: true });
+        const updated = await updateWalletsData(statusData, { ignoreManual: true , skipOwner: true});
 
         if (updated) {
           await updateGistJson(statusData);
