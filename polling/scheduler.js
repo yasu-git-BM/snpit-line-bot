@@ -79,7 +79,9 @@ async function updateStatus() {
     }
 
     // ✅ enableShotsの再計算を実行（manualOverrideを無視）
+    console.log(`[scheduler] updateWalletsData START`);
     await updateWalletsData({ wallets }, { ignoreManual: true });
+    console.log(`[scheduler] updateWalletsData END`);
 
     if (updated && isValidWallets(wallets)) {
       await updateGistJson({ wallets });

@@ -120,7 +120,9 @@ async function handleEvent(event) {
         const statusData = await getGistJson();
 
         // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
+        console.log(`[LINE] updateWalletsData START`);
         const updated = await updateWalletsData(statusData, { ignoreManual: true });
+        console.log(`[LINE] updateWalletsData END`);
 
         if (updated) {
           await updateGistJson(statusData);

@@ -61,6 +61,9 @@ function sortWallets(wallets) {
 
 // ===== Core Update =====
 async function updateWalletsData(statusData, options = {}) {
+
+  console.log(`### updateWalletsData START `);
+  
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
@@ -122,6 +125,7 @@ async function updateWalletsData(statusData, options = {}) {
   }
 
   sortWallets(statusData.wallets);
+  console.log(`### updateWalletsData NORMAL END `);
   return updated;
 }
 
