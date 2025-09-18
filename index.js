@@ -6,9 +6,9 @@ const cors = require('cors');
 const { ethers } = require('ethers');
 const fetch = require('node-fetch');
 const { Client, middleware } = require('@line/bot-sdk');
-//const { getGistJson } = require('./gistClient');
-const { updateWalletsData } = require('./api/status'); // ✅ 追加
+const { updateWalletsData } = require('./api/status');
 const { getGistJson, updateGistJson } = require('./gistClient');
+const { buildStatusMessage } = require('./utils/messageBuilder');
 
 const app = express();
 app.use(express.json());
@@ -35,8 +35,8 @@ app.get('/config.json', (req, res) => {
 });
 
 // ===== GistベースAPIルート =====
-const { router: statusRouter } = require('./api/status'); // ✅ 修正
-app.use('/api/status', statusRouter);                     // ✅ 修正
+const { router: statusRouter } = require('./api/status');
+app.use('/api/status', statusRouter);
 app.use('/api/config', require('./api/config'));
 app.use('/api/update', require('./api/update'));
 
@@ -117,10 +117,7 @@ async function handleEvent(event) {
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
       try {
-
         const statusData = await getGistJson();
-
-        // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
         const updated = await updateWalletsData(statusData, { ignoreManual: true });
 
         if (updated) {
@@ -130,20 +127,7 @@ async function handleEvent(event) {
           console.log('ℹ️ 更新は不要でした');
         }
 
-        const walletOrder = statusData.wallets.map(w => w['wallet address']);
-        const lines = walletOrder.map(addr => {
-          const w = statusData.wallets.find(w => w['wallet address'] === addr);
-          const label = getLabel(w.enableShots, w.maxShots);
-          const paddedName = w['wallet name']?.padEnd(10, '　') ?? 'Unnamed';
-          const shots = w.enableShots ?? 0;
-          return `${label} ${paddedName}${shots}枚`;
-        });
-
-        const message = {
-          type: 'text',
-          text: `📸 撮影可能枚数一覧\n\n${lines.join('\n')}`
-        };
-
+        const message = buildStatusMessage(statusData.wallets);
         return lineClient.replyMessage(event.replyToken, message);
       } catch (err) {
         console.error('❌ fetchStatus error:', err);
@@ -173,10 +157,7 @@ async function handleEvent(event) {
   const text = event.message.text.trim();
   console.log('💬 Text message:', text);
 
-
   const statusData = await getGistJson();
-
-  // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
   console.log(`[LINE] updateWalletsData START`);
   const updated = await updateWalletsData(statusData, { ignoreManual: true });
   console.log(`[LINE] updateWalletsData END`);
@@ -187,19 +168,8 @@ async function handleEvent(event) {
   } else {
     console.log('ℹ️ 更新は不要でした');
   }
-        
-  try {
-    const { getGistJson } = require('./gistClient');
-    const statusData = await getGistJson();
-    const walletOrder = statusData.wallets.map(w => w['wallet address']);
-    const lines = walletOrder.map(addr => {
-      const w = statusData.wallets.find(w => w['wallet address'] === addr);
-      const label = getLabel(w.enableShots, w.maxShots);
-      const paddedName = w['wallet name']?.padEnd(10, '　') ?? 'Unnamed';
-      const shots = w.enableShots ?? 0;
-      return `${label} ${paddedName}${shots}枚`;
-    });
 
+  try {
     if (!text.includes('カメラ')) {
       console.log('🔸 Sending menu template');
       return lineClient.replyMessage(event.replyToken, {
@@ -226,12 +196,7 @@ async function handleEvent(event) {
     }
 
     console.log('🔸 Sending camera status');
-
-    const message = {
-      type: 'text',
-      text: `📸 撮影可能枚数一覧\n\n${lines.join('\n')}`
-    };
-
+    const message = buildStatusMessage(statusData.wallets);
     return lineClient.replyMessage(event.replyToken, message);
   } catch (err) {
     console.error('❌ LINE Bot error:', err);
@@ -242,26 +207,11 @@ async function handleEvent(event) {
   }
 }
 
-
-// ===== 色ラベル関数 =====
-function getLabel(shots, max) {
-  const thresholds = {
-    16: { yellow: [1, 11], red: [12, 16] },
-    8:  { yellow: [1, 5],  red: [6, 8] },
-    4:  { yellow: [1, 1],  red: [2, 4] },
-    2:  { yellow: [1, 1],  red: [2, 2] }
-  };
-  const t = thresholds[max] || { yellow: [1, max - 1], red: [max, max] };
-  if (shots >= t.red[0] && shots <= t.red[1]) return '🟥';
-  if (shots >= t.yellow[0] && shots <= t.yellow[1]) return '🟨';
-  return '🟩';
-}
-
 // ===== サーバ起動 =====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// index.js のどこか（できれば最下部）に追加
+// ===== ポーリング処理起動 =====
 require('./polling/scheduler');

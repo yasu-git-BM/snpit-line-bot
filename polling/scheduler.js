@@ -4,8 +4,8 @@ require('dotenv').config();
 const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
 const { getGistJson, updateGistJson } = require('../gistClient');
 const { normalizeWallets } = require('../lib/normalize');
-const { buildFlexMessage } = require('../utils/flexBuilder');
-const { updateWalletsData } = require('../api/status'); // ✅ 追加
+const { updateWalletsData } = require('../api/status');
+const { buildStatusMessage } = require('../utils/messageBuilder'); // ✅ 共通関数に切り替え
 const { Client } = require('@line/bot-sdk');
 
 const POLLING_INTERVAL_MS = Number(process.env.POLLING_INTERVAL_MS) || 600000;
@@ -22,7 +22,10 @@ const lastNotified = {
 };
 
 function getTimeSlot(now = new Date()) {
-  const hour = now.getHours();
+  const JST_OFFSET = 9 * 60; // JST = UTC+9時間 → 分単位
+  const local = new Date(now.getTime() + JST_OFFSET * 60 * 1000);
+  const hour = local.getHours();
+
   if (hour >= 23) return 'night';
   if (hour >= 17) return 'afternoon';
   if (hour >= 11) return 'morning';
@@ -78,7 +81,6 @@ async function updateStatus() {
       }
     }
 
-    // ✅ enableShotsの再計算を実行（manualOverrideを無視）
     console.log(`[scheduler] updateWalletsData START`);
     await updateWalletsData({ wallets }, { ignoreManual: true });
     console.log(`[scheduler] updateWalletsData END`);
@@ -100,24 +102,8 @@ async function updateStatus() {
         );
 
         if (hasShots) {
-          const walletOrder = wallets.map(w => w['wallet address']);
-          const statusPayload = {};
-
-          for (const wallet of wallets) {
-            if (!Array.isArray(wallet.nfts)) continue;
-
-            for (const nft of wallet.nfts) {
-              statusPayload[wallet['wallet address']] = {
-                name: nft.name || `Camera #${nft.tokenId}`,
-                image: nft.image || '',
-                remainingShots: nft.lastTotalShots ?? 0,
-                maxShots: wallet.maxShots ?? 16
-              };
-            }
-          }
-
-          const flex = buildFlexMessage(statusPayload, walletOrder);
-          await client.pushMessage(process.env.LINE_USER_ID, flex);
+          const message = buildStatusMessage(wallets); // ✅ Flex → Text形式に統一
+          await client.pushMessage(process.env.LINE_USER_ID, message);
           lastNotified[slot] = now;
           console.log(`📨 通知送信済み（${slot}）`);
         } else {
@@ -134,7 +120,6 @@ async function updateStatus() {
   return POLLING_INTERVAL_MS;
 }
 
-// ポーリング起動（requireされた場合でも動く）
 (async () => {
   try {
     const interval = await updateStatus();
