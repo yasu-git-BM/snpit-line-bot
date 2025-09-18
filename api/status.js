@@ -64,8 +64,7 @@ async function updateWalletsData(statusData, options = {}) {
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const contract = new ethers.Contract(CAMERA_CONTRACT_ADDRESS, ABI, provider);
 
-  const nowJST = DateTime.now().setZone('Asia/Tokyo'); // ← JSTを明示的に生成
-
+  const nowJST = DateTime.now().setZone('Asia/Tokyo');
   let updated = false;
 
   if (!Array.isArray(statusData.wallets)) {
@@ -86,7 +85,6 @@ async function updateWalletsData(statusData, options = {}) {
 
     for (const [nIdx, nft] of wallet.nfts.entries()) {
       const tokenId = nft?.tokenId ?? nft?.tokeinid;
-
       if (!tokenId) {
         console.warn(`⚠️ wallet[${wIdx}].nfts[${nIdx}] に tokenId が未設定`);
         continue;
@@ -94,25 +92,19 @@ async function updateWalletsData(statusData, options = {}) {
 
       try {
         console.log(`🔍 NFT検出: wallet=${wallet['wallet name']}, tokenId=${tokenId}`);
-
         const owner = await contract.ownerOf(tokenId);
         let uri = await contract.tokenURI(tokenId);
-
         if (uri.startsWith('ipfs://')) {
           uri = uri.replace('ipfs://', 'https://ipfs.io/ipfs/');
         }
 
         const metaRes = await fetch(uri);
         if (!metaRes.ok) throw new Error(`メタデータ取得失敗: ${metaRes.status}`);
-
         const metadata = await metaRes.json();
-        const totalShots = metadata.attributes?.find(
-          attr => attr.trait_type === 'Total Shots'
-        )?.value ?? 0;
+        const totalShots = metadata.attributes?.find(attr => attr.trait_type === 'Total Shots')?.value ?? 0;
 
         nft.currentTotalShots = toNumOrNull(totalShots);
         wallet['wallet address'] = owner;
-
         updated = true;
 
         console.log(`📸 更新成功: wallet=${wallet['wallet name']}, owner=${owner}, Last totalShots = ${nft.lastTotalShots} ---> New CurrentTotalShots=${totalShots}`);
@@ -122,10 +114,9 @@ async function updateWalletsData(statusData, options = {}) {
       }
     }
 
-    updateEnableShots(wallet, nowJST, options); // ← JSTを渡す
-
+    updateEnableShots(wallet, nowJST, options);
     if (!options.forceOverride) {
-      wallet.lastChecked = nowJST.toISO(); // ← JSTのISO形式で保存
+      wallet.lastChecked = nowJST.toISO();
       wallet.manualOverride = false;
     }
   }
@@ -139,6 +130,12 @@ router.get('/', async (req, res) => {
   try {
     console.log('📡 GET /api/status START');
     const statusData = await getGistJson();
+
+    if (!Array.isArray(statusData?.wallets)) {
+      console.warn('⚠️ statusData.wallets が配列ではないため、空配列で返します');
+      return res.json({ wallets: [] });
+    }
+
     const updated = await updateWalletsData(statusData);
 
     if (updated) {
