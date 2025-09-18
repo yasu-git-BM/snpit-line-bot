@@ -5,7 +5,7 @@ const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
 const { getGistJson, updateGistJson } = require('../gistClient');
 const { normalizeWallets } = require('../lib/normalize');
 const { buildFlexMessage } = require('../utils/flexBuilder');
-const { updateWalletsData } = require('../status'); // ✅ 追加
+const { updateWalletsData } = require('../api/status'); // ✅ 追加
 const { Client } = require('@line/bot-sdk');
 
 const POLLING_INTERVAL_MS = Number(process.env.POLLING_INTERVAL_MS) || 600000;
