@@ -106,6 +106,10 @@ app.post('/webhook', (req, res, next) => {
 // ===== LINEイベント処理 =====
 async function handleEvent(event) {
   console.log('📩 Event received:', JSON.stringify(event, null, 2));
+  console.log(`📩 event.type:${event.type}`);
+
+  const { getGistJson, updateGistJson } = require('./gistClient');
+  const { updateWalletsData } = require('./api/status');
 
   if (event.type === 'postback') {
     const data = event.postback.data;
@@ -114,15 +118,11 @@ async function handleEvent(event) {
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
       try {
-        const { getGistJson, updateGistJson } = require('./gistClient');
-        const { updateWalletsData } = require('./api/status');
 
         const statusData = await getGistJson();
 
         // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
-        console.log(`[LINE] updateWalletsData START`);
         const updated = await updateWalletsData(statusData, { ignoreManual: true });
-        console.log(`[LINE] updateWalletsData END`);
 
         if (updated) {
           await updateGistJson(statusData);
@@ -174,6 +174,18 @@ async function handleEvent(event) {
   const text = event.message.text.trim();
   console.log('💬 Text message:', text);
 
+  // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
+  console.log(`[LINE] updateWalletsData START`);
+  const updated = await updateWalletsData(statusData, { ignoreManual: true });
+  console.log(`[LINE] updateWalletsData END`);
+
+  if (updated) {
+    await updateGistJson(statusData);
+    console.log('💾 Gistに更新を反映しました');
+  } else {
+    console.log('ℹ️ 更新は不要でした');
+  }
+        
   try {
     const { getGistJson } = require('./gistClient');
     const statusData = await getGistJson();
