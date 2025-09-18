@@ -7,7 +7,7 @@ const { ethers } = require('ethers');
 const fetch = require('node-fetch');
 const { Client, middleware } = require('@line/bot-sdk');
 //const { getGistJson } = require('./gistClient');
-const { updateWalletsData } = require('../api/status'); // ✅ 追加
+const { updateWalletsData } = require('./api/status'); // ✅ 追加
 const { getGistJson, updateGistJson } = require('./gistClient');
 
 const app = express();
