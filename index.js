@@ -114,24 +114,28 @@ async function handleEvent(event) {
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
       try {
-        const raw = await getGistJson();
-        const wallets = raw.wallets;
-        const walletOrder = wallets.map(w => w['wallet address']);
-        const statusData = {};
+        const { getGistJson, updateGistJson } = require('./gistClient');
+        const { updateWalletsData } = require('./api/status');
 
-        for (const wallet of wallets) {
-          statusData[wallet['wallet address']] = {
-            name: wallet['wallet name'],
-            enableShots: wallet.enableShots ?? 0,
-            maxShots: wallet.maxShots ?? 16
-          };
+        const statusData = await getGistJson();
+
+        // ✅ 最新化処理（NFT owner / totalShots / enableShots 再計算）
+        const updated = await updateWalletsData(statusData, { ignoreManual: true });
+
+        if (updated) {
+          await updateGistJson(statusData);
+          console.log('💾 Gistに更新を反映しました');
+        } else {
+          console.log('ℹ️ 更新は不要でした');
         }
 
+        const walletOrder = statusData.wallets.map(w => w['wallet address']);
         const lines = walletOrder.map(addr => {
-          const w = statusData[addr];
+          const w = statusData.wallets.find(w => w['wallet address'] === addr);
           const label = getLabel(w.enableShots, w.maxShots);
-          const paddedName = w.name.padEnd(10, '　');
-          return `${label} ${paddedName}${w.enableShots}枚`;
+          const paddedName = w['wallet name']?.padEnd(10, '　') ?? 'Unnamed';
+          const shots = w.enableShots ?? 0;
+          return `${label} ${paddedName}${shots}枚`;
         });
 
         const message = {
@@ -169,18 +173,16 @@ async function handleEvent(event) {
   console.log('💬 Text message:', text);
 
   try {
-    const raw = await getGistJson();
-    const wallets = raw.wallets;
-    const walletOrder = wallets.map(w => w['wallet address']);
-    const statusData = {};
-
-    for (const wallet of wallets) {
-      statusData[wallet['wallet address']] = {
-        name: wallet['wallet name'],
-        enableShots: wallet.enableShots ?? 0,
-        maxShots: wallet.maxShots ?? 16
-      };
-    }
+    const { getGistJson } = require('./gistClient');
+    const statusData = await getGistJson();
+    const walletOrder = statusData.wallets.map(w => w['wallet address']);
+    const lines = walletOrder.map(addr => {
+      const w = statusData.wallets.find(w => w['wallet address'] === addr);
+      const label = getLabel(w.enableShots, w.maxShots);
+      const paddedName = w['wallet name']?.padEnd(10, '　') ?? 'Unnamed';
+      const shots = w.enableShots ?? 0;
+      return `${label} ${paddedName}${shots}枚`;
+    });
 
     if (!text.includes('カメラ')) {
       console.log('🔸 Sending menu template');
@@ -209,13 +211,6 @@ async function handleEvent(event) {
 
     console.log('🔸 Sending camera status');
 
-    const lines = walletOrder.map(addr => {
-      const w = statusData[addr];
-      const label = getLabel(w.enableShots, w.maxShots);
-      const paddedName = w.name.padEnd(10, '　');
-      return `${label} ${paddedName}${w.enableShots}枚`;
-    });
-
     const message = {
       type: 'text',
       text: `📸 撮影可能枚数一覧\n\n${lines.join('\n')}`
@@ -230,6 +225,7 @@ async function handleEvent(event) {
     });
   }
 }
+
 
 // ===== 色ラベル関数 =====
 function getLabel(shots, max) {
