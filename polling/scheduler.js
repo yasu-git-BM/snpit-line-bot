@@ -28,6 +28,12 @@ function getTimeSlot(now = new Date()) {
   return null;
 }
 
+function isValidWallets(wallets) {
+  return Array.isArray(wallets) &&
+    wallets.length > 0 &&
+    wallets.every(w => typeof w['wallet name'] === 'string');
+}
+
 async function updateStatus() {
   console.log(`[scheduler] ポーリング開始: ${new Date().toISOString()}`);
 
@@ -64,11 +70,14 @@ async function updateStatus() {
       }
     }
 
-    await updateGistJson({ wallets });
+    if (updated && isValidWallets(wallets)) {
+      await updateGistJson({ wallets });
+      console.log('💾 Gistに更新を反映しました');
+    } else {
+      console.warn('⚠️ Gist更新スキップ（更新なし or wallets不正）');
+    }
 
     if (updated) {
-      console.log('💾 Gistに更新を反映しました');
-
       const now = new Date();
       const slot = getTimeSlot(now);
       if (slot && (!lastNotified[slot] || now - lastNotified[slot] > 1000 * 60 * 60)) {
