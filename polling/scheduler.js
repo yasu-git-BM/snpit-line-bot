@@ -42,7 +42,14 @@ async function updateStatus() {
     const wallets = normalizeWallets(statusData?.wallets ?? []);
 
     console.log('[debug] statusData:', JSON.stringify(statusData, null, 2));
-    console.log('[debug] normalized wallets:', JSON.stringify(wallets, null, 2));
+    console.log(`[debug] statusData.wallets type: ${Array.isArray(statusData?.wallets) ? 'array' : typeof statusData?.wallets}`);
+    console.log(`[debug] normalized wallets count: ${Array.isArray(wallets) ? wallets.length : 'invalid'}`);
+
+    if (Array.isArray(wallets) && wallets.length > 0) {
+      console.log('[debug] sample wallet:', JSON.stringify(wallets[0], null, 2));
+    } else {
+      console.warn('[warn] walletsが空または不正です');
+    }
 
     let updated = false;
 
