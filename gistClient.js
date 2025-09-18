@@ -51,7 +51,7 @@ async function getGistJson() {
   const normalized = normalizeWallets(result.data.wallets);
   console.log(`📤 normalized wallets sample =`, JSON.stringify(normalized.wallets?.[0], null, 2));
 
-  return normalized; // ✅ { wallets: [...] } を返す
+  return { wallets: normalized };
 }
 
 // 🔹 GistにJSONデータを更新
