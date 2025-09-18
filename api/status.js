@@ -1,3 +1,4 @@
+// ✅ 修正済みの api/status.js
 const express = require('express');
 const fetch = require('node-fetch');
 const { ethers } = require('ethers');
@@ -25,7 +26,6 @@ function toNumOrNull(v) {
 function isInconsistent(wallet) {
   const maxShots = toNumOrNull(wallet.maxShots);
   const enableShots = toNumOrNull(wallet.enableShots);
-
   if (maxShots === null && enableShots === null) return false;
   if (enableShots === null && maxShots !== null) return true;
   if (enableShots !== null && enableShots < 0) return true;
@@ -175,7 +175,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+// ✅ エクスポートを分離
 module.exports = {
-  updateWalletsData,
+  router,
+  updateWalletsData
 };
