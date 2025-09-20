@@ -116,34 +116,6 @@ async function handleEvent(event) {
 
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
-
-      try {
-        // ✅ 1段階目：即レス
-        await lineClient.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '最新情報取得中…'
-        });
-        console.log('📨 即レス送信済み（最新情報取得中…）');
-
-        // ✅ 2段階目：後追い通知（push）
-        const statusData = await getGistJson();
-        const updated = await updateWalletsData(statusData, { ignoreManual: true, skipOwner: true });
-
-        if (updated) {
-          await updateGistJson(statusData);
-          console.log('💾 Gistに更新を反映しました');
-        }
-
-        const message = buildStatusMessage(statusData.wallets);
-        await lineClient.pushMessage(event.source.userId, message);
-      } catch (err) {
-        console.error('❌ fetchStatus error:', err);
-        await lineClient.pushMessage(event.source.userId, {
-          type: 'text',
-          text: '最新情報の取得に失敗しました。'
-        });
-      }
-
       return null; // ✅ replyTokenは1回しか使えない
     }
 
@@ -167,20 +139,40 @@ async function handleEvent(event) {
   const text = event.message.text.trim();
   console.log('💬 Text message:', text);
 
-  const statusData = await getGistJson();
-  console.log(`[LINE] updateWalletsData START`);
-  const updated = await updateWalletsData(statusData, { ignoreManual: true });
-  console.log(`[LINE] updateWalletsData END`);
+  // LINEからのオンデマンドリクエスト
+  if (text.includes('Reflesh!!')) {
+    try {
+      // ✅ 1段階目：即レス
+      await lineClient.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '最新情報取得中…'
+      });
+      console.log('📨 即レス送信済み（最新情報取得中…）');
 
-  if (updated) {
-    await updateGistJson(statusData);
-    console.log('💾 Gistに更新を反映しました');
-  } else {
-    console.log('ℹ️ 更新は不要でした');
+      // ✅ 2段階目：後追い通知（push）
+      const statusData = await getGistJson();
+      
+      console.log(`[LINE] updateWalletsData START`);
+      const updated = await updateWalletsData(statusData, { ignoreManual: true, skipOwner: true });
+      console.log(`[LINE] updateWalletsData END`);
+
+      if (updated) {
+        await updateGistJson(statusData);
+        console.log('💾 Gistに更新を反映しました');
+      }
+
+      const message = buildStatusMessage(statusData.wallets);
+      await lineClient.pushMessage(event.source.userId, message);
+    } catch (err) {
+      console.error('❌ fetchStatus error:', err);
+      await lineClient.pushMessage(event.source.userId, {
+        type: 'text',
+        text: '最新情報の取得に失敗しました。'
+      });
+    }
   }
-
-  try {
-    if (!text.includes('Reflesh!!')) {
+  else {
+    try {
       console.log('🔸 Sending menu template');
       return lineClient.replyMessage(event.replyToken, {
         type: 'template',
@@ -203,17 +195,16 @@ async function handleEvent(event) {
           ]
         }
       });
+      console.log('🔸 Sending camera status');
+      const message = buildStatusMessage(statusData.wallets);
+      return lineClient.replyMessage(event.replyToken, message);
+    } catch (err) {
+      console.error('❌ LINE Bot error:', err);
+      return lineClient.replyMessage(event.replyToken, {
+        type: 'text',
+        text: 'エラーが発生しました。後でもう一度お試しください。'
+      });
     }
-
-    console.log('🔸 Sending camera status');
-    const message = buildStatusMessage(statusData.wallets);
-    return lineClient.replyMessage(event.replyToken, message);
-  } catch (err) {
-    console.error('❌ LINE Bot error:', err);
-    return lineClient.replyMessage(event.replyToken, {
-      type: 'text',
-      text: 'エラーが発生しました。後でもう一度お試しください。'
-    });
   }
 }
 
