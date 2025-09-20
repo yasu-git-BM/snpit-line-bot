@@ -26,6 +26,11 @@ app.get('/', (req, res) => {
   res.status(200).send('✅ snpit-line-bot is running');
 });
 
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
+
+
 // ===== GUI用 config.jsonルート =====
 app.get('/config.json', (req, res) => {
   res.json({
@@ -212,6 +217,13 @@ async function handleEvent(event) {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  
+  setInterval(() => {
+    fetch(`${process.env.MY_URL}/healthz`)
+      .then(res => console.log(`🌀 Self-ping status: ${res.status}`))
+      .catch(err => console.warn(`⚠️ Self-ping failed: ${err.message}`));
+  }, 5 * 60 * 1000); // 5分ごと
+    
 });
 
 // ===== ポーリング処理起動 =====
