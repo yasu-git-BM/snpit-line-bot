@@ -25,7 +25,7 @@ function buildStatusMessage(wallets) {
 
   return {
     type: 'text',
-    text: `📸 撮影可能枚数一覧\n\n${lines.join('\n')}`
+    text: `📸 撮影可能枚数\n\n${lines.join('\n')}`
   };
 }
 

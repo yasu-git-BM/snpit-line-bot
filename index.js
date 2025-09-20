@@ -116,9 +116,17 @@ async function handleEvent(event) {
 
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
+
+      // ✅ 1段階目：即レスで「取得中…」を返す
+      await lineClient.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '最新情報取得中…'
+      });
+
+      // ✅ 2段階目：非同期で最新結果を取得して pushMessage
       try {
         const statusData = await getGistJson();
-        const updated = await updateWalletsData(statusData, { ignoreManual: true , skipOwner: true});
+        const updated = await updateWalletsData(statusData, { ignoreManual: true, skipOwner: true });
 
         if (updated) {
           await updateGistJson(statusData);
@@ -128,14 +136,17 @@ async function handleEvent(event) {
         }
 
         const message = buildStatusMessage(statusData.wallets);
-        return lineClient.replyMessage(event.replyToken, message);
+        await lineClient.pushMessage(event.source.userId, message); // ✅ pushで送信
       } catch (err) {
         console.error('❌ fetchStatus error:', err);
-        return lineClient.replyMessage(event.replyToken, {
+        await lineClient.pushMessage(event.source.userId, {
           type: 'text',
           text: '最新情報の取得に失敗しました。'
         });
       }
+
+      return null; // replyMessageはすでに送信済み
+      
     }
 
     if (data === 'action=showGUI') {
