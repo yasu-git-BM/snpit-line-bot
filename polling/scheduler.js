@@ -67,7 +67,7 @@ async function updateStatus() {
           const md = await fetchMetadata(tokenId);
 
           if (owner && md) {
-            nft.lastTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
+            nft.currentTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
             wallet['wallet address'] = owner;
             wallet.lastChecked = new Date().toISOString();
             updated = true;
