@@ -5,7 +5,7 @@ const { fetchMetadata, fetchOwner } = require('../utils/nftReader');
 const { getGistJson, updateGistJson } = require('../gistClient');
 const { normalizeWallets } = require('../lib/normalize');
 const { updateWalletsData } = require('../api/status');
-const { buildStatusMessage } = require('../utils/messageBuilder'); // ✅ 共通関数に切り替え
+const { buildStatusMessage } = require('../utils/messageBuilder');
 const { Client } = require('@line/bot-sdk');
 
 const POLLING_INTERVAL_MS = Number(process.env.POLLING_INTERVAL_MS) || 600000;
@@ -22,13 +22,13 @@ const lastNotified = {
 };
 
 function getTimeSlot(now = new Date()) {
-  const JST_OFFSET = 9 * 60; // JST = UTC+9時間 → 分単位
+  const JST_OFFSET = 9 * 60;
   const local = new Date(now.getTime() + JST_OFFSET * 60 * 1000);
   const hour = local.getHours();
 
-  if (hour >= 23) return 'night';
-  if (hour >= 17) return 'afternoon';
-  if (hour >= 11) return 'morning';
+  if (hour === 22) return 'night';
+  if (hour === 17) return 'afternoon';
+  if (hour === 11) return 'morning';
   return null;
 }
 
@@ -94,6 +94,13 @@ async function updateStatus() {
 
     if (updated) {
       const now = new Date();
+      const jstHour = new Date(now.getTime() + 9 * 60 * 60 * 1000).getHours();
+      const allowedHours = [11, 17, 22];
+      if (!allowedHours.includes(jstHour)) {
+        console.log(`⏱️ 通知スキップ: 現在JST ${jstHour}時は通知対象外`);
+        return POLLING_INTERVAL_MS;
+      }
+
       const slot = getTimeSlot(now);
       if (slot && (!lastNotified[slot] || now - lastNotified[slot] > 1000 * 60 * 60)) {
         const hasShots = wallets.some(w =>
@@ -102,7 +109,7 @@ async function updateStatus() {
         );
 
         if (hasShots) {
-          const message = buildStatusMessage(wallets); // ✅ Flex → Text形式に統一
+          const message = buildStatusMessage(wallets);
           await client.pushMessage(process.env.LINE_USER_ID, message);
           lastNotified[slot] = now;
           console.log(`📨 通知送信済み（${slot}）`);
