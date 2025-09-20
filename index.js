@@ -117,26 +117,25 @@ async function handleEvent(event) {
     if (data === 'action=fetchStatus') {
       console.log('🔹 fetchStatus triggered');
 
-      // ✅ 1段階目：即レスで「取得中…」を返す
-      await lineClient.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '最新情報取得中…'
-      });
-
-      // ✅ 2段階目：非同期で最新結果を取得して pushMessage
       try {
+        // ✅ 1段階目：即レス
+        await lineClient.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '最新情報取得中…'
+        });
+        console.log('📨 即レス送信済み（最新情報取得中…）');
+
+        // ✅ 2段階目：後追い通知（push）
         const statusData = await getGistJson();
         const updated = await updateWalletsData(statusData, { ignoreManual: true, skipOwner: true });
 
         if (updated) {
           await updateGistJson(statusData);
           console.log('💾 Gistに更新を反映しました');
-        } else {
-          console.log('ℹ️ 更新は不要でした');
         }
 
         const message = buildStatusMessage(statusData.wallets);
-        await lineClient.pushMessage(event.source.userId, message); // ✅ pushで送信
+        await lineClient.pushMessage(event.source.userId, message);
       } catch (err) {
         console.error('❌ fetchStatus error:', err);
         await lineClient.pushMessage(event.source.userId, {
@@ -145,9 +144,9 @@ async function handleEvent(event) {
         });
       }
 
-      return null; // replyMessageはすでに送信済み
-      
+      return null; // ✅ replyTokenは1回しか使えない
     }
+
 
     if (data === 'action=showGUI') {
       console.log('🔹 showGUI triggered');
@@ -181,7 +180,7 @@ async function handleEvent(event) {
   }
 
   try {
-    if (!text.includes('カメラ')) {
+    if (!text.includes('Reflesh!!')) {
       console.log('🔸 Sending menu template');
       return lineClient.replyMessage(event.replyToken, {
         type: 'template',
