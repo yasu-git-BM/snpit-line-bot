@@ -57,33 +57,33 @@ async function updateStatus() {
 
     let updated = false;
 
-    for (const wallet of wallets) {
-      if (!Array.isArray(wallet.nfts)) continue;
-
-      for (const nft of wallet.nfts) {
-        const tokenId = nft.tokenId;
-        try {
-          const owner = await fetchOwner(tokenId);
-          const md = await fetchMetadata(tokenId);
-
-          if (owner && md) {
-            nft.currentTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
-            wallet['wallet address'] = owner;
-            wallet.lastChecked = new Date().toISOString();
-            updated = true;
-
-            console.log(`📸 更新: wallet=${wallet['wallet name']}, tokenId=${tokenId}, owner=${owner}`);
-          }
-        } catch (err) {
-          console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.message}`);
-          wallet.lastChecked = new Date().toISOString();
-        }
-      }
-    }
+//    for (const wallet of wallets) {
+//      if (!Array.isArray(wallet.nfts)) continue;
+//
+//      for (const nft of wallet.nfts) {
+//        const tokenId = nft.tokenId;
+//        try {
+//          const owner = await fetchOwner(tokenId);
+//          const md = await fetchMetadata(tokenId);
+//
+//          if (owner && md) {
+//            nft.currentTotalShots = md.attributes?.find(a => a.trait_type === 'Total Shots')?.value || 0;
+//            wallet['wallet address'] = owner;
+//            wallet.lastChecked = new Date().toISOString();
+//            updated = true;
+//
+//            console.log(`📸 更新: wallet=${wallet['wallet name']}, tokenId=${tokenId}, owner=${owner}`);
+//          }
+//        } catch (err) {
+//          console.warn(`⚠️ tokenId=${tokenId} の取得に失敗: ${err.message}`);
+//          wallet.lastChecked = new Date().toISOString();
+//        }
+//      }
+//    }
 
     console.log(`[scheduler] updateWalletsData START`);
-    await updateWalletsData({ wallets }, { ignoreManual: true });
-    console.log(`[scheduler] updateWalletsData END`);
+    updated = await updateWalletsData({ wallets }, { ignoreManual: true });
+    console.log(`[scheduler] updateWalletsData END update=${updated}`);
 
     if (updated && isValidWallets(wallets)) {
       await updateGistJson({ wallets });
