@@ -213,6 +213,45 @@ async function handleEvent(event) {
   }
 }
 
+// ===== 撮影枚数クリアAPI =====
+app.get('/clear', async (req, res) => {
+  const { wallet } = req.query;
+
+  if (!wallet) {
+    return res.status(400).json({ error: "wallet missing" });
+  }
+
+  try {
+    const config = await getGistJson();
+
+    if (!config.wallets || !Array.isArray(config.wallets)) {
+      return res.status(500).json({ error: "invalid config format" });
+    }
+
+    const target = config.wallets.find(
+      w => w["wallet address"].toLowerCase() === wallet.toLowerCase()
+    );
+
+    if (!target) {
+      return res.status(404).json({ error: "wallet not found" });
+    }
+
+    // 撮影可能枚数を0に
+    target.enableShots = 0;
+
+    // 任意：最終チェック日時を更新
+    target.lastChecked = new Date().toISOString();
+
+    await updateGistJson(config);
+
+    return res.json({ status: "ok" });
+  } catch (err) {
+    console.error("❌ /clear error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ===== サーバ起動 =====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
