@@ -213,6 +213,27 @@ async function handleEvent(event) {
   }
 }
 
+function formatJST(date) {
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+
+  const weekday = days[date.getDay()];
+
+  // 曜日付きにしたいならこれを返す
+  return `${y}/${m}/${d} ${hh}:${mm}:${ss} (${weekday})`;
+
+  // 曜日いらないならこっち
+  // return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
+}
+
+
 // ===== 撮影枚数クリアAPI =====
 app.get('/clear', async (req, res) => {
   const { wallet } = req.query;
@@ -239,12 +260,19 @@ app.get('/clear', async (req, res) => {
     // 撮影可能枚数を0に
     target.enableShots = 0;
 
-    // 任意：最終チェック日時を更新
-    target.lastChecked = new Date().toISOString();
+    // JSTの現在時刻を生成
+    const now = new Date();
+    const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+
+    // 保存用は ISO +09:00 のままでもOK
+    target.lastChecked = jst.toISOString().replace("Z", "+09:00");
 
     await updateGistJson(config);
 
-    return res.json({ status: "ok" });
+    // 表示用にフォーマット
+    const formatted = formatJST(jst);
+
+    return res.json({ status: "ok", timeJST: formatted });
   } catch (err) {
     console.error("❌ /clear error:", err);
     return res.status(500).json({ error: err.message });
