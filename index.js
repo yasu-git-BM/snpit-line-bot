@@ -234,48 +234,102 @@ function formatJST(date) {
 }
 
 
-// ===== 撮影枚数クリアAPI =====
+const { buildStatusMessage } = require('./utils/messageBuilder');
+
+// ===== 撮影枚数クリアAPI（全ウォレットサマリHTML版） =====
 app.get('/clear', async (req, res) => {
   const { wallet } = req.query;
 
   if (!wallet) {
-    return res.status(400).json({ error: "wallet missing" });
+    return res.status(400).send("wallet missing");
   }
 
   try {
     const config = await getGistJson();
-
-    if (!config.wallets || !Array.isArray(config.wallets)) {
-      return res.status(500).json({ error: "invalid config format" });
-    }
 
     const target = config.wallets.find(
       w => w["wallet address"].toLowerCase() === wallet.toLowerCase()
     );
 
     if (!target) {
-      return res.status(404).json({ error: "wallet not found" });
+      return res.status(404).send("wallet not found");
     }
 
     // 撮影可能枚数を0に
     target.enableShots = 0;
 
-    // JSTの現在時刻を生成
+    // JST
     const now = new Date();
     const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const y = jst.getFullYear();
+    const m = String(jst.getMonth() + 1).padStart(2, "0");
+    const d = String(jst.getDate()).padStart(2, "0");
+    const hh = String(jst.getHours()).padStart(2, "0");
+    const mm = String(jst.getMinutes()).padStart(2, "0");
+    const ss = String(jst.getSeconds()).padStart(2, "0");
+    const jstString = `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
 
-    // 保存用は ISO +09:00 のままでもOK
+    // 保存用
     target.lastChecked = jst.toISOString().replace("Z", "+09:00");
-
     await updateGistJson(config);
 
-    // 表示用にフォーマット
-    const formatted = formatJST(jst);
+    // ★ LINE と同じサマリテキストを生成
+    const summary = buildStatusMessage(config.wallets).text;
 
-    return res.json({ status: "ok", timeJST: formatted });
+    // HTML
+    const html = `
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>撮影クリア</title>
+        <style>
+          body {
+            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 20px;
+          }
+          .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 480px;
+            margin: auto;
+            white-space: pre-wrap;
+          }
+          .title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c7be5;
+            margin-bottom: 10px;
+          }
+          .time {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 15px;
+          }
+          pre {
+            font-size: 16px;
+            line-height: 1.6;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="title">📸 撮影枚数をクリアしました</div>
+          <div class="time">実行時刻：${jstString}</div>
+
+          <pre>${summary}</pre>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return res.send(html);
+
   } catch (err) {
     console.error("❌ /clear error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).send(err.message);
   }
 });
 
