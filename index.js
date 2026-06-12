@@ -274,33 +274,34 @@ app.get('/clear', async (req, res) => {
       <html>
       <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>撮影クリア</title>
         <style>
           body {
             background: #f5f5f5;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 20px;
+            font-size: 18px;        /* ← これが重要（全体の基準フォント） */
+            line-height: 1.7;       /* ← 読みやすさUP */
           }
           .card {
-            padding: 14px 18px;
             white-space: pre-wrap;
-            font-size: 18px;
-            line-height: 1.7;
           }
           .title {
-            font-size: 20px;
+            font-size: 22px;        /* ← 少し大きめに */
             font-weight: bold;
             color: #2c7be5;
             margin-bottom: 10px;
           }
           .time {
-            font-size: 14px;
+            font-size: 16px;        /* ← ここも少し大きく */
             color: #555;
             margin-bottom: 15px;
           }
           pre {
-            font-size: 16px;
-            line-height: 1.6;
+            font-size: 18px;        /* ← ここが超重要（preは継承されにくい） */
+            line-height: 1.7;
+            margin: 0;
           }
         </style>
       </head>
