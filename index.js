@@ -228,7 +228,7 @@ function formatJST(date) {
   const weekday = days[date.getDay()];
 
   // 曜日付きにしたいならこれを返す
-  return `${y}/${m}/${d} ${hh}:${mm}:${ss} (${weekday})`;
+  return `${y}/${m}/${d}(${weekday}) ${hh}:${mm}:${ss}`;
 
   // 曜日いらないならこっち
   // return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
@@ -277,33 +277,33 @@ app.get('/clear', async (req, res) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>撮影クリア</title>
+        <title>撮影枚数クリア</title>
         <style>
           body {
             background: #f5f5f5;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 20px;
-            font-size: 18px;        /* ← これが重要（全体の基準フォント） */
-            line-height: 1.7;       /* ← 読みやすさUP */
+            font-size: 18px;
+            line-height: 1.6;   /* ← 少し詰める */
           }
           .card {
             white-space: pre-wrap;
           }
           .title {
-            font-size: 22px;        /* ← 少し大きめに */
+            font-size: 22px;
             font-weight: bold;
             color: #2c7be5;
-            margin-bottom: 10px;
+            margin-bottom: 4px;   /* ← 10px → 4px に縮小 */
           }
           .time {
-            font-size: 16px;        /* ← ここも少し大きく */
+            font-size: 16px;
             color: #555;
-            margin-bottom: 15px;
+            margin-bottom: 8px;   /* ← 15px → 8px に縮小 */
           }
           pre {
-            font-size: 18px;        /* ← ここが超重要（preは継承されにくい） */
-            line-height: 1.7;
-            margin: 0;
+            font-size: 18px;
+            line-height: 1.6;
+            margin: 4px 0 0 0;    /* ← 上の余白を最小限に */
           }
         </style>
       </head>
