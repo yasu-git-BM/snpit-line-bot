@@ -260,9 +260,11 @@ app.get('/clear', async (req, res) => {
     // JSTの現在時刻を生成
     const now = new Date();
     const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const jstString = formatJST(now)
+    
+    // 表示用にフォーマット
+    const jstString = formatJST(jst);
 
-    // 保存用
+    // 保存用は ISO +09:00 のままでもOK
     target.lastChecked = jst.toISOString().replace("Z", "+09:00");
     await updateGistJson(config);
 
@@ -274,41 +276,43 @@ app.get('/clear', async (req, res) => {
       <html>
       <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>撮影クリア</title>
         <style>
           body {
             background: #f5f5f5;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 20px;
+            font-size: 18px;        /* ← これが重要（全体の基準フォント） */
+            line-height: 1.7;       /* ← 読みやすさUP */
           }
           .card {
-            padding: 14px 18px;
             white-space: pre-wrap;
-            font-size: 18px;
-            line-height: 1.7;
           }
           .title {
-            font-size: 20px;
+            font-size: 22px;        /* ← 少し大きめに */
             font-weight: bold;
             color: #2c7be5;
             margin-bottom: 10px;
           }
           .time {
-            font-size: 14px;
+            font-size: 16px;        /* ← ここも少し大きく */
             color: #555;
             margin-bottom: 15px;
           }
           pre {
-            font-size: 16px;
-            line-height: 1.6;
+            font-size: 18px;        /* ← ここが超重要（preは継承されにくい） */
+            line-height: 1.7;
+            margin: 0;
           }
         </style>
       </head>
       <body>
         <div class="card">
-          <div class="title">📸 撮影枚数をクリアしました</div>
-          <div class="time">実行時刻：${jstString}</div>
-
+          <div class="title">
+          	📸撮影枚数クリア📸</br>
+          	実行時刻：${jstString}
+          </div>
           <pre>${summary}</pre>
         </div>
       </body>
