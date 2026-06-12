@@ -309,7 +309,7 @@ app.get('/clear', async (req, res) => {
       </head>
       <body>
         <div class="card">
-          <div class="title">📸撮影枚数クリア📸　${jstString}</div>
+          <div class="title">📸撮影枚数クリア📸 ${jstString}</div>
           <pre>${summary}</pre>
         </div>
       </body>
