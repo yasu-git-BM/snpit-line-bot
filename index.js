@@ -282,12 +282,7 @@ app.get('/clear', async (req, res) => {
             padding: 20px;
           }
           .card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            max-width: 480px;
-            margin: auto;
+            padding: 10px 16px;
             white-space: pre-wrap;
           }
           .title {
@@ -308,10 +303,12 @@ app.get('/clear', async (req, res) => {
         </style>
       </head>
       <body>
+        <div class="card">
           <div class="title">📸 撮影枚数をクリアしました</div>
           <div class="time">実行時刻：${jstString}</div>
 
           <pre>${summary}</pre>
+        </div>
       </body>
       </html>
     `;
