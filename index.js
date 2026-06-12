@@ -10,6 +10,7 @@ const { updateWalletsData } = require('./api/status');
 const { getGistJson, updateGistJson } = require('./gistClient');
 const { buildStatusMessage } = require('./utils/messageBuilder');
 
+
 const app = express();
 app.use(express.json());
 
@@ -233,8 +234,6 @@ function formatJST(date) {
   // return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
 }
 
-
-const { buildStatusMessage } = require('./utils/messageBuilder');
 
 // ===== 撮影枚数クリアAPI（全ウォレットサマリHTML版） =====
 app.get('/clear', async (req, res) => {
