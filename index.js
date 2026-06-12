@@ -257,16 +257,10 @@ app.get('/clear', async (req, res) => {
     // 撮影可能枚数を0に
     target.enableShots = 0;
 
-    // JST
+    // JSTの現在時刻を生成
     const now = new Date();
     const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const y = jst.getFullYear();
-    const m = String(jst.getMonth() + 1).padStart(2, "0");
-    const d = String(jst.getDate()).padStart(2, "0");
-    const hh = String(jst.getHours()).padStart(2, "0");
-    const mm = String(jst.getMinutes()).padStart(2, "0");
-    const ss = String(jst.getSeconds()).padStart(2, "0");
-    const jstString = `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
+    const jstString = formatJST(now)
 
     // 保存用
     target.lastChecked = jst.toISOString().replace("Z", "+09:00");
@@ -314,12 +308,10 @@ app.get('/clear', async (req, res) => {
         </style>
       </head>
       <body>
-        <div class="card">
           <div class="title">📸 撮影枚数をクリアしました</div>
           <div class="time">実行時刻：${jstString}</div>
 
           <pre>${summary}</pre>
-        </div>
       </body>
       </html>
     `;
