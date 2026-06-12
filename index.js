@@ -282,8 +282,10 @@ app.get('/clear', async (req, res) => {
             padding: 20px;
           }
           .card {
-            padding: 10px 16px;
+            padding: 14px 18px;
             white-space: pre-wrap;
+            font-size: 18px;
+            line-height: 1.7;
           }
           .title {
             font-size: 20px;
