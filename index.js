@@ -7,6 +7,7 @@ const { ethers } = require('ethers');
 const fetch = require('node-fetch');
 const { Client, middleware } = require('@line/bot-sdk');
 const { updateWalletsData } = require('./api/status');
+const { sortWallets } = require('./api/status'); 
 const { getGistJson, updateGistJson } = require('./gistClient');
 const { buildStatusMessage } = require('./utils/messageBuilder');
 
@@ -269,6 +270,7 @@ app.get('/clear', async (req, res) => {
     await updateGistJson(config);
 
     // ★ LINE と同じサマリテキストを生成
+    sortWallets(config.wallets);
     const summary = buildStatusMessage(config.wallets).text;
 
     // HTML
@@ -282,7 +284,7 @@ app.get('/clear', async (req, res) => {
           body {
             background: #f5f5f5;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            padding: 20px;
+            padding: 0 20px 20px 20px;  /* ← 上だけ 0 に変更 */
             font-size: 18px;
             line-height: 1.6;   /* ← 少し詰める */
           }
