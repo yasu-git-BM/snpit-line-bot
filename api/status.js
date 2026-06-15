@@ -186,5 +186,6 @@ router.post('/', async (req, res) => {
 // ✅ エクスポートを分離
 module.exports = {
   router,
-  updateWalletsData
+  updateWalletsData,
+  sortWallets
 };
