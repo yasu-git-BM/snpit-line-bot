@@ -2,7 +2,7 @@
 
 function getLabel(shots, max) {
   // ★ 0枚なら透明の四角を返す
-  if (shots === 0) return '□';
+  if (shots === 0) return '🔲';
   
   const thresholds = {
     16: { yellow: [9, 12], red: [13, 16] },
